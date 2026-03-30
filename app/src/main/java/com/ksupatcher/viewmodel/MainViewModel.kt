@@ -691,7 +691,23 @@ class MainViewModel(
         setPhase(OtaPhase.DUMPING_BOOT)
         val workDir = getWorkDir()
         val dumpedImg = File(workDir, "next-boot.img")
-        val blockDevice = "/dev/block/by-name/boot$targetSlot"
+
+        // prefer init_boot over boot if it exists
+        val initBootDevice = "/dev/block/by-name/init_boot$targetSlot"
+        val bootDevice = "/dev/block/by-name/boot$targetSlot"
+        val blockDevice = try {
+            val hasInitBoot = RootShell.run("[ -e $initBootDevice ] && echo yes || echo no").trim()
+            if (hasInitBoot == "yes") {
+                appendLog("init_boot partition detected using init_boot instead of boot.")
+                initBootDevice
+            } else {
+                bootDevice
+            }
+        } catch (e: Throwable) {
+            appendLog("Could not detect init_boot, falling back to boot. (${e.message})")
+            bootDevice
+        }
+
         appendLog("Dumping: $blockDevice → ${dumpedImg.absolutePath}")
         try {
             RootShell.run("dd if=$blockDevice of=${dumpedImg.absolutePath} bs=4096")
