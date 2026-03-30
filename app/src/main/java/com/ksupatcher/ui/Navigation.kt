@@ -86,7 +86,11 @@ fun KsuPatcherNavGraph(
                     onRefreshVersion = viewModel::refreshVersion,
                     onVersionUrlChange = viewModel::updateVersionUrl,
                     onSaveVersionUrl = viewModel::saveVersionUrl,
-                    onCheckLatestRelease = viewModel::checkLatestReleaseUpdate
+                    onCheckLatestRelease = viewModel::checkLatestReleaseUpdate,
+                    onRunOta = viewModel::runOtaPatch,
+                    onRunLkm = viewModel::runLkmUpdate,
+                    onResetOta = viewModel::resetOta,
+                    onRebootNow = viewModel::rebootNow
                 )
             }
         }

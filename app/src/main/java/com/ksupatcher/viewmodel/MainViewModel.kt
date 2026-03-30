@@ -12,6 +12,7 @@ import com.ksupatcher.jni.NativeBridge
 import com.ksupatcher.network.DownloadRepository
 import com.ksupatcher.network.GitHubReleaseRepository
 import com.ksupatcher.network.UpdateRepository
+import com.ksupatcher.root.RootShell
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -28,6 +29,29 @@ import java.util.Locale
 
 enum class KsuVariant { KSU, KSUN }
 
+enum class OtaPhase {
+    IDLE,
+    CHECKING_ROOT,
+    NO_ROOT,
+    CHECKING_OTA_PROP,
+    NO_OTA_PENDING,
+    READING_SLOT,
+    DUMPING_BOOT,
+    PATCHING,
+    FLASHING,
+    DONE,
+    ERROR
+}
+
+data class OtaState(
+    val phase: OtaPhase = OtaPhase.IDLE,
+    val log: String = "",
+    val currentSlot: String? = null,       // a or b
+    val nextSlot: String? = null,          // the opposite slot
+    val rebootRequired: Boolean = false,
+    val isLkmMode: Boolean = false         // if true den update lkm on current slot instead of ota
+)
+
 data class UiState(
     val isCheckingVersion: Boolean = false,
     val versionInfo: VersionInfo? = null,
@@ -40,7 +64,8 @@ data class UiState(
     val patchState: PatchState = PatchState(),
     val latestReleaseTag: String? = null,
     val updateManifest: com.ksupatcher.data.UpdateManifest? = null,
-    val manifestError: String? = null
+    val manifestError: String? = null,
+    val otaState: OtaState = OtaState()
 )
 
 data class PatchState(
@@ -586,6 +611,160 @@ class MainViewModel(
                 }
                 target.absolutePath to name
             }
+        }
+    }
+
+    fun resetOta() {
+        _state.update { it.copy(otaState = OtaState()) }
+    }
+
+    fun runOtaPatch() {
+        viewModelScope.launch { executeOtaFlow(lkmMode = false) }
+    }
+
+    fun runLkmUpdate() {
+        viewModelScope.launch { executeOtaFlow(lkmMode = true) }
+    }
+
+    private suspend fun executeOtaFlow(lkmMode: Boolean) {
+        fun appendLog(msg: String) {
+            _state.update {
+                it.copy(otaState = it.otaState.copy(log = it.otaState.log + "\n" + msg))
+            }
+        }
+        fun setPhase(p: OtaPhase) {
+            _state.update { it.copy(otaState = it.otaState.copy(phase = p)) }
+        }
+
+        _state.update {
+            it.copy(otaState = OtaState(phase = OtaPhase.CHECKING_ROOT, isLkmMode = lkmMode))
+        }
+
+        if (!RootShell.isRooted()) {
+            val granted = withContext(Dispatchers.IO) {
+                try {
+                    RootShell.run("true")
+                    true
+                } catch (_: Throwable) { false }
+            }
+            if (!granted) {
+                setPhase(OtaPhase.NO_ROOT)
+                appendLog("Root access denied. Please grant root permission to this app.")
+                return
+            }
+        }
+        appendLog("Root access granted.")
+
+        if (!lkmMode) {
+            setPhase(OtaPhase.CHECKING_OTA_PROP)
+            appendLog("Checking for pending OTA (getprop ota.other.vbmeta_digest)...")
+            val otaProp = try {
+                RootShell.getProp("ota.other.vbmeta_digest")
+            } catch (e: Throwable) {
+                setPhase(OtaPhase.ERROR)
+                appendLog("Error reading prop: ${e.message}")
+                return
+            }
+            if (otaProp.isNullOrBlank()) {
+                setPhase(OtaPhase.NO_OTA_PENDING)
+                appendLog("No OTA update is pending (ota.other.vbmeta_digest is empty).\nApply an OTA update first, then come back here before rebooting.")
+                return
+            }
+            appendLog("OTA detected. vbmeta_digest = $otaProp")
+        }
+
+        setPhase(OtaPhase.READING_SLOT)
+        val currentSlot = try {
+            RootShell.getProp("ro.boot.slot_suffix") ?: error("ro.boot.slot_suffix returned empty")
+        } catch (e: Throwable) {
+            setPhase(OtaPhase.ERROR)
+            appendLog("Failed to read slot: ${e.message}")
+            return
+        }
+        val nextSlot = if (lkmMode) currentSlot else (if (currentSlot == "_a") "_b" else "_a")
+        _state.update {
+            it.copy(otaState = it.otaState.copy(currentSlot = currentSlot, nextSlot = nextSlot))
+        }
+        val targetSlot = nextSlot  // slot whose boot partition we touch
+        appendLog("Current slot: $currentSlot  →  target slot: $targetSlot")
+
+        setPhase(OtaPhase.DUMPING_BOOT)
+        val workDir = getWorkDir()
+        val dumpedImg = File(workDir, "next-boot.img")
+        val blockDevice = "/dev/block/by-name/boot$targetSlot"
+        appendLog("Dumping: $blockDevice → ${dumpedImg.absolutePath}")
+        try {
+            RootShell.run("dd if=$blockDevice of=${dumpedImg.absolutePath} bs=4096")
+        } catch (e: Throwable) {
+            setPhase(OtaPhase.ERROR)
+            appendLog("DD (dump) failed: ${e.message}")
+            return
+        }
+        appendLog("Boot image dumped (${dumpedImg.length() / 1024} KB).")
+
+        setPhase(OtaPhase.PATCHING)
+        val binaryPrepare = ensureBinaries()
+        if (binaryPrepare.isFailure) {
+            setPhase(OtaPhase.ERROR)
+            appendLog("Binary preparation failed: ${binaryPrepare.exceptionOrNull()?.message}")
+            return
+        }
+        val ksud = resolveBundledBinaryForVariant(_state.value.patchState.variant)
+        val magiskboot = resolveBundledBinary("libmagiskboot.so")
+        val module = _state.value.patchState.modulePath
+        if (module.isNullOrBlank()) {
+            setPhase(OtaPhase.ERROR)
+            appendLog("No kernel module selected. Go to Patch tab and let the module auto-download, or select one manually.")
+            return
+        }
+        val patchCmd = listOf(
+            ksud.absolutePath,
+            "boot-patch",
+            "-b", dumpedImg.absolutePath,
+            "--kmi", "android12-5.10",
+            "--magiskboot", magiskboot.absolutePath,
+            "--module", module,
+            "-o", workDir.absolutePath
+        )
+        appendLog("Patching boot image...")
+        val patchResult = executeCommandStreaming(patchCmd, workDir)
+        if (patchResult.isFailure) {
+            setPhase(OtaPhase.ERROR)
+            appendLog("Patch failed: ${patchResult.exceptionOrNull()?.message}")
+            return
+        }
+        appendLog(patchResult.getOrNull().orEmpty())
+        val patchedImg = findPatchedImage(workDir)
+        if (patchedImg == null) {
+            setPhase(OtaPhase.ERROR)
+            appendLog("Patched image not found in work directory.")
+            return
+        }
+        appendLog("Patched image: ${patchedImg.name} (${patchedImg.length() / 1024} KB)")
+
+        setPhase(OtaPhase.FLASHING)
+        appendLog("Flashing: ${patchedImg.absolutePath} → $blockDevice")
+        try {
+            RootShell.run("dd if=${patchedImg.absolutePath} of=$blockDevice bs=4096")
+        } catch (e: Throwable) {
+            setPhase(OtaPhase.ERROR)
+            appendLog("DD (flash) failed: ${e.message}")
+            return
+        }
+
+        setPhase(OtaPhase.DONE)
+        _state.update { it.copy(otaState = it.otaState.copy(rebootRequired = true)) }
+        appendLog(
+            if (lkmMode)
+                "LKM update complete. ✓  Safe to reboot."
+            else
+                "OTA root patch complete. ✓  Please reboot to boot into the updated slot with root preserved."
+        )
+    }
+
+    fun rebootNow() {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { RootShell.run("svc power reboot") }
         }
     }
 }

@@ -22,7 +22,11 @@ fun SettingsScreen(
     onRefreshVersion: () -> Unit,
     onVersionUrlChange: (String) -> Unit,
     onSaveVersionUrl: () -> Unit,
-    onCheckLatestRelease: () -> Unit
+    onCheckLatestRelease: () -> Unit,
+    onRunOta: () -> Unit,
+    onRunLkm: () -> Unit,
+    onResetOta: () -> Unit,
+    onRebootNow: () -> Unit
 ) {
     val scrollState = rememberScrollState()
     var selectedTab by remember { mutableStateOf("update") }
@@ -56,7 +60,7 @@ fun SettingsScreen(
                 modifier = Modifier.weight(1f)
             )
             TabButton(
-                text = "OTA (soon)",
+                text = "OTA",
                 selected = selectedTab == "ota",
                 onClick = { selectedTab = "ota" },
                 modifier = Modifier.weight(1f)
@@ -97,7 +101,7 @@ fun SettingsScreen(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp) // Removed Arrangement.End to span width evenly
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Button(
                             onClick = onSaveVersionUrl,
@@ -218,6 +222,14 @@ fun SettingsScreen(
                     }
                 }
             }
+        } else if (selectedTab == "ota") {
+            OtaScreen(
+                otaState = state.otaState,
+                onRunOta = onRunOta,
+                onRunLkm = onRunLkm,
+                onReset = onResetOta,
+                onReboot = onRebootNow
+            )
         }
     }
 }
