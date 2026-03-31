@@ -28,6 +28,8 @@ import android.provider.MediaStore
 import java.util.Locale
 
 enum class KsuVariant { KSU, KSUN }
+enum class InstallMethod { PATCH, LKM }
+enum class RootStatus { GRANTED, NOT_GRANTED, UNKNOWN }
 
 enum class OtaPhase {
     IDLE,
@@ -65,11 +67,13 @@ data class UiState(
     val latestReleaseTag: String? = null,
     val updateManifest: com.ksupatcher.data.UpdateManifest? = null,
     val manifestError: String? = null,
-    val otaState: OtaState = OtaState()
+    val otaState: OtaState = OtaState(),
+    val rootStatus: RootStatus = RootStatus.UNKNOWN
 )
 
 data class PatchState(
     val variant: KsuVariant = KsuVariant.KSU,
+    val method: InstallMethod = InstallMethod.PATCH,
     val bootImageName: String? = null,
     val bootImagePath: String? = null,
     val moduleName: String? = null,
@@ -105,6 +109,21 @@ class MainViewModel(
             settingsRepository.versionUrlFlow.collect { url ->
                 _state.update { it.copy(versionUrl = url) }
             }
+        }
+        viewModelScope.launch {
+            settingsRepository.rootStatusFlow.collect { statusStr ->
+                val status = try { RootStatus.valueOf(statusStr) } catch (_: Exception) { RootStatus.UNKNOWN }
+                _state.update { it.copy(rootStatus = status) }
+            }
+        }
+        checkRootAccess()
+    }
+
+    private fun checkRootAccess() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val isRooted = RootShell.isRooted()
+            val status = if (isRooted) RootStatus.GRANTED else RootStatus.NOT_GRANTED
+            settingsRepository.setRootStatus(status.name)
         }
     }
 
@@ -215,6 +234,10 @@ class MainViewModel(
 
     fun selectVariant(variant: KsuVariant) {
         _state.update { it.copy(patchState = it.patchState.copy(variant = variant)) }
+    }
+
+    fun selectMethod(method: InstallMethod) {
+        _state.update { it.copy(patchState = it.patchState.copy(method = method)) }
     }
 
     fun importBootImage(uri: Uri) {

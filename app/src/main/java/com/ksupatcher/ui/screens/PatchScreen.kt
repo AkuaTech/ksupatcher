@@ -31,16 +31,20 @@ import androidx.compose.foundation.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import com.ksupatcher.ui.components.*
+import com.ksupatcher.viewmodel.InstallMethod
 import com.ksupatcher.viewmodel.KsuVariant
+import com.ksupatcher.viewmodel.OtaPhase
 import com.ksupatcher.viewmodel.UiState
 
 @Composable
 fun PatchScreen(
     state: UiState,
     onVariantSelected: (KsuVariant) -> Unit,
+    onMethodSelected: (InstallMethod) -> Unit,
     onPickBoot: (Uri) -> Unit,
     onPickModule: (Uri) -> Unit,
-    onRunPatch: () -> Unit
+    onRunPatch: () -> Unit,
+    onRunLkm: () -> Unit
 ) {
     val bootPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -58,16 +62,21 @@ fun PatchScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp)
-            .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+            .verticalScroll(scrollState)
     ) {
         Spacer(modifier = Modifier.height(32.dp))
         
         Text(
-            text = "Patch Image",
+            text = "Install",
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onBackground
         )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Step 1: Variant
+        AppStepHeader(number = "01", title = "Variant")
+        Spacer(modifier = Modifier.height(12.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -88,23 +97,71 @@ fun PatchScreen(
                 modifier = Modifier.weight(1f)
             )
         }
-
-        AppSectionHeader(title = "Required Files")
-
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            FileSelector(
-                label = "Boot Image",
-                fileName = patch.bootImageName,
-                placeholder = "Select boot.img",
-                onSelect = { bootPicker.launch(arrayOf("application/octet-stream", "image/*")) }
+        Spacer(modifier = Modifier.height(8.dp))
+        StepConnector()
+        Spacer(modifier = Modifier.height(8.dp))
+        // Step 2: Method
+        AppStepHeader(number = "02", title = "Method")
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            AppActionTile(
+                title = "Patch",
+                subtitle = "Boot Image",
+                icon = Icons.Filled.Edit,
+                selected = patch.method == InstallMethod.PATCH,
+                onClick = { onMethodSelected(InstallMethod.PATCH) },
+                modifier = Modifier.weight(1f)
             )
-
-            FileSelector(
-                label = "Kernel Module",
-                fileName = patch.moduleName,
-                placeholder = "Optional: custom kernelsu.ko",
-                onSelect = { modulePicker.launch(arrayOf("application/octet-stream")) }
+            AppActionTile(
+                title = "Install",
+                subtitle = "LKM (Current)",
+                icon = Icons.Filled.CloudDownload,
+                selected = patch.method == InstallMethod.LKM,
+                onClick = { onMethodSelected(InstallMethod.LKM) },
+                modifier = Modifier.weight(1f)
             )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        StepConnector()
+        Spacer(modifier = Modifier.height(8.dp))
+        // Step 3: Action
+        AppStepHeader(number = "03", title = "Action")
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (patch.method == InstallMethod.PATCH) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                FileSelector(
+                    label = "Boot Image",
+                    fileName = patch.bootImageName,
+                    placeholder = "Select boot.img",
+                    onSelect = { bootPicker.launch(arrayOf("application/octet-stream", "image/*")) }
+                )
+
+                FileSelector(
+                    label = "Kernel Module",
+                    fileName = patch.moduleName,
+                    placeholder = "Optional: custom kernelsu.ko",
+                    onSelect = { modulePicker.launch(arrayOf("application/octet-stream")) }
+                )
+            }
+        } else {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "This will update the KernelSU module on your current boot slot using root access.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -139,14 +196,16 @@ fun PatchScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(20.dp))
+
         AnimatedVisibility(
-            visible = !patch.isPatching,
+            visible = !patch.isPatching && state.otaState.phase == OtaPhase.IDLE,
             enter = expandVertically(),
             exit = shrinkVertically()
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(
-                    onClick = onRunPatch,
+                    onClick = if (patch.method == InstallMethod.PATCH) onRunPatch else onRunLkm,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
@@ -156,12 +215,12 @@ fun PatchScreen(
                     )
                 ) {
                     Text(
-                        text = "Start Patching",
+                        text = if (patch.method == InstallMethod.PATCH) "Start Patching" else "Start Updating",
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
 
-                if (!patch.status.isNullOrBlank()) {
+                if (patch.method == InstallMethod.PATCH && !patch.status.isNullOrBlank()) {
                     Card(
                         shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(

@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -210,3 +212,99 @@ fun AppSectionHeader(
         modifier = modifier.padding(top = 16.dp, bottom = 8.dp)
     )
 }
+
+@Composable
+fun AppStepHeader(
+    number: String,
+    title: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = number,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onBackground
+        )
+    }
+}
+
+@Composable
+fun StepConnector(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .padding(start = 13.dp)
+            .width(2.dp)
+            .height(24.dp)
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+    )
+}
+
+@Composable
+fun RootStatusCard(
+    status: com.ksupatcher.viewmodel.RootStatus,
+    modifier: Modifier = Modifier
+) {
+    val isGranted = status == com.ksupatcher.viewmodel.RootStatus.GRANTED
+    val containerColor = if (isGranted) 
+        Color(0xFF1B2E1E).copy(alpha = 0.8f) 
+    else 
+        Color(0xFF2E1B1B).copy(alpha = 0.8f)
+    
+    val accentColor = if (isGranted) Color(0xFF4CAF50) else Color(0xFFF44336)
+    
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(accentColor.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isGranted) Icons.Filled.CheckCircle else Icons.Filled.Cancel,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isGranted) "Root Status: Granted" else "Root Status: Not Granted",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White
+                )
+                Text(
+                    text = if (isGranted) "Full system access available" else "Superuser access is required",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+}
+

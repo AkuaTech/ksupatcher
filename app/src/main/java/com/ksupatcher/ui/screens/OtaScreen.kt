@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -61,28 +62,47 @@ fun OtaScreen(
         )
 
         Card(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
             ),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Root Persistence Guide",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    "• Apply OTA but DO NOT reboot.\n" +
-                    "• Tap Flash (OTA) to patch opposite slot.\n" +
-                    "• Reboot to preserve root access.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "Root Persistence Guide",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "1. Apply OTA system update (do not reboot)\n" +
+                        "2. Tap Flash (OTA) below to patch the inactive slot\n" +
+                        "3. Reboot to preserve root on the new system",
+                        style = MaterialTheme.typography.bodySmall,
+                        lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified, // fallback
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                }
             }
         }
-
 
         AnimatedVisibility(
             visible = otaState.phase != OtaPhase.IDLE,
@@ -93,35 +113,25 @@ fun OtaScreen(
         }
 
         if (!isRunning) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (otaState.phase == OtaPhase.IDLE) {
-                    Button(
-                        onClick = onRunOta,
-                        modifier = Modifier.weight(1f).height(56.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text("Flash (OTA)")
-                    }
-                    Button(
-                        onClick = onRunLkm,
-                        modifier = Modifier.weight(1f).height(56.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                    ) {
-                        Text("Flash (LKM)")
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = onReset,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = RoundedCornerShape(20.dp)
-                    ) {
-                        Text("Clear / Reset", fontWeight = FontWeight.SemiBold)
-                    }
+            if (otaState.phase == OtaPhase.IDLE) {
+                Button(
+                    onClick = onRunOta,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text(
+                        "Flash (OTA Slot)",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            } else {
+                OutlinedButton(
+                    onClick = onReset,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Text("Clear / Reset", fontWeight = FontWeight.SemiBold)
                 }
             }
         }

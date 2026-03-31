@@ -34,7 +34,7 @@ fun KsuPatcherNavGraph(
 ) {
     val navController = rememberNavController()
     val navItems = listOf(
-        NavItem("patch", "Patch") { Icon(Icons.Filled.Build, contentDescription = null) },
+        NavItem("patch", "Install") { Icon(Icons.Filled.Build, contentDescription = null) },
         NavItem("ota", "OTA") { Icon(Icons.Filled.SystemUpdate, contentDescription = null) },
         NavItem("settings", "Settings") { Icon(Icons.Filled.Settings, contentDescription = null) }
     )
@@ -85,9 +85,11 @@ fun KsuPatcherNavGraph(
                 PatchScreen(
                     state = state,
                     onVariantSelected = viewModel::selectVariant,
+                    onMethodSelected = viewModel::selectMethod,
                     onPickBoot = viewModel::importBootImage,
                     onPickModule = viewModel::importModule,
-                    onRunPatch = viewModel::runPatch
+                    onRunPatch = viewModel::runPatch,
+                    onRunLkm = viewModel::runLkmUpdate
                 )
             }
             composable("ota") {

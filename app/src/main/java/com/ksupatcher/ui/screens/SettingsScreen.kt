@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ksupatcher.ui.components.RootStatusCard
 import com.ksupatcher.viewmodel.UiState
 
 @Composable
@@ -34,9 +35,11 @@ fun SettingsScreen(
 
         Text(
             text = "Settings",
-            style = MaterialTheme.typography.headlineLarge,
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onBackground
         )
+
+        RootStatusCard(status = state.rootStatus)
 
         Card(
             shape = RoundedCornerShape(24.dp),
