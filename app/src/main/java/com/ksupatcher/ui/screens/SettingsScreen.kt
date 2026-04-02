@@ -17,7 +17,8 @@ import com.ksupatcher.viewmodel.UiState
 @Composable
 fun SettingsScreen(
     state: UiState,
-    onRefreshVersion: () -> Unit
+    onRefreshVersion: () -> Unit,
+    onRefreshRoot: () -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -36,7 +37,10 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onBackground
         )
 
-        RootStatusCard(status = state.rootStatus)
+        RootStatusCard(
+            status = state.rootStatus,
+            onRefresh = onRefreshRoot
+        )
 
         Card(
             shape = RoundedCornerShape(24.dp),

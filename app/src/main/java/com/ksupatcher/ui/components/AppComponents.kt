@@ -82,6 +82,8 @@ fun AppStatusCard(
     subtitle: String,
     icon: ImageVector = Icons.Default.Info,
     iconColor: Color = MaterialTheme.colorScheme.primary,
+    onAction: (() -> Unit)? = null,
+    actionLabel: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -109,7 +111,7 @@ fun AppStatusCard(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
@@ -120,6 +122,17 @@ fun AppStatusCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            if (onAction != null && actionLabel != null) {
+                TextButton(
+                    onClick = onAction,
+                    contentPadding = PaddingValues(horizontal = 12.dp)
+                ) {
+                    Text(
+                        text = actionLabel,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
             }
         }
     }
@@ -258,6 +271,7 @@ fun StepConnector(modifier: Modifier = Modifier) {
 @Composable
 fun RootStatusCard(
     status: com.ksupatcher.viewmodel.RootStatus,
+    onRefresh: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isGranted = status == com.ksupatcher.viewmodel.RootStatus.GRANTED
@@ -299,10 +313,22 @@ fun RootStatusCard(
                     color = Color.White
                 )
                 Text(
-                    text = if (isGranted) "Full system access available" else "Superuser access is required",
+                    text = if (isGranted) "Superuser access active" else "Please grant root access",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.7f)
                 )
+            }
+
+            if (onRefresh != null) {
+                TextButton(
+                    onClick = onRefresh,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.8f))
+                ) {
+                    Text(
+                        text = "Check",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
             }
         }
     }

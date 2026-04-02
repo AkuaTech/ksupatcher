@@ -90,7 +90,8 @@ fun KsuPatcherNavGraph(
                     onPickModule = { viewModel.importModule(it) },
                     onRunPatch = { viewModel.runPatch() },
                     onRunLkm = { viewModel.runLkmUpdate() },
-                    onResetInstall = { viewModel.resetInstall() }
+                    onResetInstall = { viewModel.resetInstall() },
+                    onReboot = { viewModel.rebootNow() }
                 )
             }
             composable("ota") {
@@ -107,7 +108,8 @@ fun KsuPatcherNavGraph(
                 val state by viewModel.state.collectAsStateWithLifecycle()
                 SettingsScreen(
                     state = state,
-                    onRefreshVersion = { viewModel.refreshVersion() }
+                    onRefreshVersion = { viewModel.refreshVersion() },
+                    onRefreshRoot = { viewModel.refreshRootStatus() }
                 )
             }
         }

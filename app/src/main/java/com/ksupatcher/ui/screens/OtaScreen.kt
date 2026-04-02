@@ -151,7 +151,7 @@ fun OtaScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text(
-                        "Flash (OTA Slot)",
+                        "Flash OTA",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -163,23 +163,6 @@ fun OtaScreen(
                 ) {
                     Text("Clear / Reset", fontWeight = FontWeight.SemiBold)
                 }
-            }
-        }
-
-        AnimatedVisibility(visible = otaState.rebootRequired) {
-            Button(
-                onClick = onReboot,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                Text(
-                    "Reboot Now",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onError
-                )
             }
         }
 

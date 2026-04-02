@@ -46,7 +46,8 @@ fun PatchScreen(
     onPickModule: (Uri) -> Unit,
     onRunPatch: () -> Unit,
     onRunLkm: () -> Unit,
-    onResetInstall: () -> Unit
+    onResetInstall: () -> Unit,
+    onReboot: () -> Unit
 ) {
     val bootPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -222,12 +223,35 @@ fun PatchScreen(
                         .height(64.dp),
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF89C4FF),
-                        contentColor = Color(0xFF1B2E3F)
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     Text(
                         text = if (patch.method == InstallMethod.PATCH) "Start Patching" else "Update LKM",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = state.otaState.rebootRequired,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Button(
+                    onClick = onReboot,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text(
+                        "Reboot Now",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }

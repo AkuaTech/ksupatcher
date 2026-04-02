@@ -116,10 +116,10 @@ class MainViewModel(
                 _state.update { it.copy(rootStatus = status) }
             }
         }
-        checkRootAccess()
+        refreshRootStatus()
     }
 
-    private fun checkRootAccess() {
+    fun refreshRootStatus() {
         viewModelScope.launch(Dispatchers.IO) {
             val isRooted = RootShell.isRooted()
             val status = if (isRooted) RootStatus.GRANTED else RootStatus.NOT_GRANTED
