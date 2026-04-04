@@ -81,7 +81,6 @@ data class PatchState(
     val modulePath: String? = null,
     val isPatching: Boolean = false,
     val status: String? = null,
-    val lastCommand: String? = null,
     val lastOutput: String? = null,
     val outputPath: String? = null,
     val rebootRequired: Boolean = false
@@ -293,7 +292,6 @@ class MainViewModel(
         _state.update {
             it.copy(
                 patchState = it.patchState.copy(
-                    lastCommand = command,
                     status = "Ready to run with shipped binaries"
                 )
             )
@@ -331,7 +329,7 @@ class MainViewModel(
         }
 
         viewModelScope.launch {
-            _state.update { it.copy(patchState = it.patchState.copy(isPatching = true, status = "Downloading binaries...", lastOutput = null)) }
+            _state.update { it.copy(patchState = it.patchState.copy(isPatching = true, status = "Downloading binaries...")) }
             val prepare = ensureBinaries()
             if (prepare.isFailure) {
                 _state.update {
@@ -351,8 +349,7 @@ class MainViewModel(
             _state.update {
                 it.copy(
                     patchState = it.patchState.copy(
-                        status = "Patching boot image...",
-                        lastCommand = "ksud boot-patch"
+                        status = "Patching boot image..."
                     )
                 )
             }
@@ -385,7 +382,7 @@ class MainViewModel(
                 workDir.absolutePath
             )
 
-            val result = executeCommandStreaming(command, workDir)
+            val result = executeCommandStreaming(command, workDir, _state.value.patchState.lastOutput)
             val patchedFile = if (result.isSuccess) findPatchedImage(workDir) else null
             val saveResult = if (result.isSuccess && patchedFile != null) {
                 savePatchedImageToDownloads(patchedFile)
@@ -403,7 +400,7 @@ class MainViewModel(
                 "Patch failed"
             }
 
-            val mergedOutput = buildString {
+            val finalOutput = buildString {
                 append(result.getOrNull() ?: result.exceptionOrNull()?.message.orEmpty())
                 if (result.isSuccess) {
                     append("\n\n")
@@ -420,7 +417,7 @@ class MainViewModel(
                     patchState = it.patchState.copy(
                         isPatching = false,
                         status = statusText,
-                        lastOutput = mergedOutput,
+                        lastOutput = finalOutput,
                         outputPath = saveResult.getOrNull() ?: patchedFile?.absolutePath
                     )
                 )
@@ -579,7 +576,11 @@ class MainViewModel(
         }
     }
 
-    private suspend fun executeCommandStreaming(command: List<String>, workDir: File): Result<String> {
+    private suspend fun executeCommandStreaming(
+        command: List<String>, 
+        workDir: File, 
+        initialLog: String? = null
+    ): Result<String> {
         return withContext(Dispatchers.IO) {
             runCatching {
                 val process = try {
@@ -600,17 +601,24 @@ class MainViewModel(
 
                 val reader = process.inputStream.bufferedReader()
                 val sb = StringBuilder()
+                if (!initialLog.isNullOrBlank()) {
+                    sb.append(initialLog).append("\n\n")
+                }
+                
+                val binaryName = File(command.first()).name
+                val simplifiedBinary = binaryName.replace(Regex("^lib"), "").replace(Regex("\\.so$"), "")
+                val prettyCommand = "$ $simplifiedBinary ${command.drop(1).joinToString(" ")}"
+                sb.append(prettyCommand).append("\n")
 
                 try {
                     var line: String?
                     while (reader.readLine().also { line = it } != null) {
                         sb.append(line).append('\n')
                         val currentFull = sb.toString()
-                        val currentLine = line + "\n"
                         _state.update { state ->
                             val patch = state.patchState.copy(lastOutput = currentFull)
                             val ota = if (state.otaState.phase != OtaPhase.IDLE && !state.otaState.isLkmMode) {
-                                state.otaState.copy(log = state.otaState.log + currentLine)
+                                state.otaState.copy(log = currentFull)
                             } else {
                                 state.otaState
                             }
@@ -656,7 +664,6 @@ class MainViewModel(
         _state.update {
             it.copy(
                 patchState = it.patchState.copy(
-                    lastCommand = null,
                     lastOutput = null,
                     status = null,
                     bootImageName = null,
@@ -706,8 +713,6 @@ class MainViewModel(
                     state.copy(
                         patchState = state.patchState.copy(
                             isPatching = true,
-                            lastCommand = "ksud install",
-                            lastOutput = null,
                             status = "Preparing LKM update..."
                         )
                     )
@@ -743,7 +748,7 @@ class MainViewModel(
 
             if (!lkmMode) {
                 setPhase(OtaPhase.CHECKING_OTA_PROP)
-                appendLog("Checking for pending OTA (getprop ota.other.vbmeta_digest)...")
+                appendLog("$ getprop ota.other.vbmeta_digest")
                 val otaProp = try {
                     RootShell.getProp("ota.other.vbmeta_digest")
                 } catch (e: Throwable) {
@@ -751,15 +756,20 @@ class MainViewModel(
                     appendLog("Error reading prop: ${e.message}")
                     return
                 }
+                if (!otaProp.isNullOrBlank()) {
+                    appendLog(otaProp)
+                }
                 if (otaProp.isNullOrBlank()) {
                     setPhase(OtaPhase.NO_OTA_PENDING)
-                    appendLog("No OTA update is pending (ota.other.vbmeta_digest is empty).\nApply an OTA update first, then come back here before rebooting.")
+                    appendLog("No OTA update is pending (ota.other.vbmeta_digest is empty).")
+                    appendLog("Apply an OTA update first, then come back here before rebooting.")
                     return
                 }
                 appendLog("OTA detected. vbmeta_digest = $otaProp")
             }
 
             setPhase(OtaPhase.READING_SLOT)
+            appendLog("$ getprop ro.boot.slot_suffix")
             val currentSlot = try {
                 RootShell.getProp("ro.boot.slot_suffix") ?: error("ro.boot.slot_suffix returned empty")
             } catch (e: Throwable) {
@@ -768,6 +778,7 @@ class MainViewModel(
                 appendLog("Failed to read slot: ${e.message}")
                 return
             }
+            appendLog(currentSlot)
             val nextSlot = if (lkmMode) currentSlot else (if (currentSlot == "_a") "_b" else "_a")
             _state.update {
                 it.copy(otaState = it.otaState.copy(currentSlot = currentSlot, nextSlot = nextSlot))
@@ -783,19 +794,20 @@ class MainViewModel(
             val initBootDevice = "/dev/block/by-name/init_boot$targetSlot"
             val bootDevice = "/dev/block/by-name/boot$targetSlot"
             val blockDevice = try {
+                appendLog("$ [ -e $initBootDevice ]")
                 val hasInitBoot = RootShell.run("[ -e $initBootDevice ] && echo yes || echo no").trim()
                 if (hasInitBoot == "yes") {
-                    appendLog("init_boot partition detected using init_boot instead of boot.")
+                    appendLog("init_boot partition detected.")
                     initBootDevice
                 } else {
                     bootDevice
                 }
             } catch (e: Throwable) {
-                appendLog("Could not detect init_boot, falling back to boot. (${e.message})")
+                appendLog("Fallback: ${e.message}")
                 bootDevice
             }
 
-            appendLog("Dumping: $blockDevice → ${dumpedImg.absolutePath}")
+            appendLog("$ dd if=$blockDevice of=${dumpedImg.absolutePath} bs=4096")
             try {
                 RootShell.run("dd if=$blockDevice of=${dumpedImg.absolutePath} bs=4096")
             } catch (e: Throwable) {
@@ -833,7 +845,8 @@ class MainViewModel(
                 "-o", workDir.absolutePath
             )
             appendLog("Patching boot image...")
-            val patchResult = executeCommandStreaming(patchCmd, workDir)
+            val initialLog = if (lkmMode) _state.value.patchState.lastOutput else _state.value.otaState.log
+            val patchResult = executeCommandStreaming(patchCmd, workDir, initialLog)
             if (patchResult.isFailure) {
                 setPhase(OtaPhase.ERROR)
                 if (lkmMode) _state.update { it.copy(patchState = it.patchState.copy(status = "Patch failed")) }
@@ -850,10 +863,12 @@ class MainViewModel(
             appendLog("Patched image: ${patchedImg.name} (${patchedImg.length() / 1024} KB)")
 
             setPhase(OtaPhase.FLASHING)
-            appendLog("Flashing: ${patchedImg.absolutePath} → $blockDevice")
+            appendLog("Flashing to partition: $blockDevice...")
             try {
                 // make block device writable before flashing
+                appendLog("$ blockdev --setrw $blockDevice")
                 RootShell.run("blockdev --setrw $blockDevice")
+                appendLog("$ dd if=${patchedImg.absolutePath} of=$blockDevice bs=4096")
                 RootShell.run("dd if=${patchedImg.absolutePath} of=$blockDevice bs=4096")
             } catch (e: Throwable) {
                 setPhase(OtaPhase.ERROR)
@@ -863,6 +878,15 @@ class MainViewModel(
             }
 
             setPhase(OtaPhase.DONE)
+            if (!lkmMode) {
+                appendLog("$ bootctl set-active-boot-slot ${targetSlot.replace("_", "")}")
+                try {
+                    RootShell.run("bootctl set-active-boot-slot ${targetSlot.replace("_", "")}")
+                } catch (e: Throwable) {
+                    appendLog("Warning: Failed to switch slot automatically: ${e.message}")
+                }
+            }
+            
             _state.update {
                 if (lkmMode) {
                     it.copy(

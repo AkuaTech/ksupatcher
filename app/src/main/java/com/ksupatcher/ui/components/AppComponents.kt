@@ -26,6 +26,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.withStyle
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
@@ -278,12 +286,11 @@ fun RootStatusCard(
     val isGranted = status == com.ksupatcher.viewmodel.RootStatus.GRANTED
     
     val containerColor = if (isGranted) 
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+        Color(0xFF1B2E1E).copy(alpha = 0.9f) 
     else 
-        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+        Color(0xFF2E1B1B).copy(alpha = 0.9f)
     
-    val accentColor = if (isGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-    val onSurface = MaterialTheme.colorScheme.onSurface
+    val accentColor = if (isGranted) Color(0xFF4CAF50) else Color(0xFFF44336)
     
     Card(
         shape = RoundedCornerShape(24.dp),
@@ -313,12 +320,12 @@ fun RootStatusCard(
                 Text(
                     text = if (isGranted) "Root Status: Granted" else "Root Status: Not Granted",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = onSurface
+                    color = Color.White
                 )
                 Text(
                     text = if (isGranted) "ᕙ(  •̀ ᗜ •́  )ᕗ" else "Please grant root access",
                     style = MaterialTheme.typography.bodySmall,
-                    color = onSurface.copy(alpha = 0.7f)
+                    color = Color.White.copy(alpha = 0.7f)
                 )
             }
 
@@ -328,7 +335,7 @@ fun RootStatusCard(
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = Color.Black.copy(alpha = 0.25f),
-                        contentColor = onSurface
+                        contentColor = Color.White
                     ),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     modifier = Modifier.height(40.dp)
@@ -336,7 +343,7 @@ fun RootStatusCard(
                     if (isChecking) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            color = onSurface,
+                            color = Color.White,
                             strokeWidth = 2.dp
                         )
                     } else {
@@ -351,3 +358,47 @@ fun RootStatusCard(
     }
 }
 
+
+@Composable
+fun TerminalView(
+    log: String,
+    modifier: Modifier = Modifier
+) {
+    if (log.isBlank()) return
+
+    val annotatedLog = buildAnnotatedString {
+        val lines = log.split('\n')
+        lines.forEachIndexed { index, line ->
+            if (line.trim().startsWith("$")) {
+                withStyle(style = SpanStyle(color = Color(0xFF62A0EA), fontWeight = FontWeight.Bold)) {
+                    append(line)
+                }
+            } else {
+                append(line)
+            }
+            if (index < lines.size - 1) {
+                append('\n')
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(max = 400.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF090A0C))
+            .padding(12.dp)
+            .verticalScroll(rememberScrollState())
+            .horizontalScroll(rememberScrollState())
+    ) {
+        SelectionContainer {
+            Text(
+                text = annotatedLog,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                color = Color(0xFFE7EAF3)
+            )
+        }
+    }
+}

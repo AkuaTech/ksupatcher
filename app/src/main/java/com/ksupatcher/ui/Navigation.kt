@@ -100,7 +100,9 @@ fun KsuPatcherNavGraph(
                     otaState = state.otaState,
                     rootStatus = state.rootStatus,
                     variant = state.patchState.variant,
+                    moduleName = state.patchState.moduleName,
                     onVariantSelected = { viewModel.selectVariant(it) },
+                    onPickModule = { viewModel.importModule(it) },
                     onRunOta = { viewModel.runOtaPatch() },
                     onResetOta = { viewModel.resetOta() },
                     onReboot = { viewModel.rebootNow() }

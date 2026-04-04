@@ -179,7 +179,7 @@ fun PatchScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         val isOtaActive = state.otaState.phase !in listOf(OtaPhase.IDLE, OtaPhase.DONE, OtaPhase.ERROR, OtaPhase.NO_ROOT, OtaPhase.NO_OTA_PENDING)
-        val showStartButton = !patch.isPatching && !isOtaActive && (patch.status == null || patch.status == "Reboot recommended")
+        val showStartButton = !patch.isPatching && !isOtaActive
         val showResetButton = !patch.isPatching && (patch.status != null || patch.lastOutput != null)
 
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -325,7 +325,7 @@ fun PatchScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         AnimatedVisibility(
-            visible = !patch.lastCommand.isNullOrBlank() || !patch.lastOutput.isNullOrBlank(),
+            visible = !patch.lastOutput.isNullOrBlank(),
             enter = expandVertically(animationSpec = spring(stiffness = Spring.StiffnessLow)),
             exit = shrinkVertically()
         ) {
@@ -343,53 +343,15 @@ fun PatchScreen(
                         .padding(16.dp)
                         .animateContentSize()
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Terminal Output",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = Color(0xFF9098A9)
-                        )
-                    }
+                    Text(
+                        "Terminal Output",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color(0xFF9098A9)
+                    )
                     
                     Spacer(modifier = Modifier.height(12.dp))
                     
-                    SelectionContainer {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 400.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF090A0C))
-                                .padding(12.dp)
-                                .verticalScroll(rememberScrollState())
-                                .horizontalScroll(rememberScrollState())
-                        ) {
-                            Column {
-                                 if (!patch.lastCommand.isNullOrBlank()) {
-                                    Text(
-                                        text = "$ " + patch.lastCommand,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = Color(0xFF62A0EA)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                }
-
-                                if (!patch.lastOutput.isNullOrBlank()) {
-                                    Text(
-                                        text = patch.lastOutput ?: "",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = Color(0xFFE7EAF3)
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    TerminalView(log = patch.lastOutput ?: "")
                 }
             }
         }

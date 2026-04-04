@@ -1,12 +1,13 @@
 package com.ksupatcher.ui.screens
 
-import androidx.compose.animation.AnimatedContent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -15,11 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,9 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.ksupatcher.ui.components.AppStatusCard
-import com.ksupatcher.ui.components.AppActionTile
-import com.ksupatcher.ui.components.AppStepHeader
+import com.ksupatcher.ui.components.*
 import com.ksupatcher.viewmodel.KsuVariant
 import com.ksupatcher.viewmodel.OtaPhase
 import com.ksupatcher.viewmodel.OtaState
@@ -42,11 +37,18 @@ fun OtaScreen(
     otaState: OtaState,
     rootStatus: RootStatus,
     variant: KsuVariant,
+    moduleName: String?,
     onVariantSelected: (KsuVariant) -> Unit,
+    onPickModule: (Uri) -> Unit,
     onRunOta: () -> Unit,
     onResetOta: () -> Unit,
     onReboot: () -> Unit
 ) {
+    val modulePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri -> uri?.let(onPickModule) }
+    )
+
     val scrollState = rememberScrollState()
     val isRunning = otaState.phase !in listOf(
         OtaPhase.IDLE, OtaPhase.DONE, OtaPhase.ERROR,
@@ -57,8 +59,7 @@ fun OtaScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp)
-            .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+            .verticalScroll(scrollState)
     ) {
         Spacer(modifier = Modifier.height(32.dp))
         Text(
@@ -66,6 +67,8 @@ fun OtaScreen(
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onBackground
         )
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         Card(
             shape = RoundedCornerShape(24.dp),
@@ -110,8 +113,10 @@ fun OtaScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(24.dp))
+
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AppStepHeader(number = "01", title = "Variant Selection")
+            AppStepHeader(number = "01", title = "Variant")
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -133,12 +138,31 @@ fun OtaScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(8.dp))
+        StepConnector()
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            AppStepHeader(number = "02", title = "Action")
+            FileSelector(
+                label = "Kernel Module",
+                fileName = moduleName,
+                placeholder = "Option: custom kernelsu.ko",
+                onSelect = { modulePicker.launch(arrayOf("application/octet-stream")) }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         AnimatedVisibility(
             visible = otaState.phase != OtaPhase.IDLE,
             enter = expandVertically(spring(stiffness = Spring.StiffnessLow)),
             exit = shrinkVertically()
         ) {
-            PhaseStatusCard(otaState)
+            Column {
+                PhaseStatusCard(otaState)
+                Spacer(modifier = Modifier.height(20.dp))
+            }
         }
 
         if (otaState.phase == OtaPhase.IDLE && rootStatus != RootStatus.GRANTED) {
@@ -166,6 +190,7 @@ fun OtaScreen(
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(20.dp))
         }
 
         if (!isRunning) {
@@ -218,16 +243,17 @@ fun OtaScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(24.dp))
+        
         AnimatedVisibility(
             visible = otaState.log.isNotBlank(),
             enter = expandVertically(spring(stiffness = Spring.StiffnessLow)),
             exit = shrinkVertically()
         ) {
             Card(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF14151A),
-                    contentColor = Color(0xFFE7EAF3)
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -235,30 +261,12 @@ fun OtaScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "Log",
+                        "Terminal Output",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = Color(0xFF9098A9),
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    SelectionContainer {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 400.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFF090A0C))
-                                .padding(12.dp)
-                                .verticalScroll(rememberScrollState())
-                                .horizontalScroll(rememberScrollState())
-                        ) {
-                            Text(
-                                text = otaState.log.trimStart('\n'),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontFamily = FontFamily.Monospace,
-                                color = Color(0xFFE7EAF3)
-                            )
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TerminalView(log = otaState.log.trimStart('\n'))
                 }
             }
         }
