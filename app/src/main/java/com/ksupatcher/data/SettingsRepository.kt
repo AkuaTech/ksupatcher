@@ -14,6 +14,7 @@ class SettingsRepository(
 ) {
     private val versionUrlKey = stringPreferencesKey("version_json_url")
     private val rootStatusKey = stringPreferencesKey("root_status")
+    private val kmiKey = stringPreferencesKey("kmi_version")
 
     val versionUrlFlow: Flow<String> = context.settingsDataStore.data.map { prefs ->
         prefs[versionUrlKey] ?: UpdateConfig.versionJsonUrl
@@ -32,6 +33,16 @@ class SettingsRepository(
     suspend fun setRootStatus(status: String) {
         context.settingsDataStore.edit { prefs ->
             prefs[rootStatusKey] = status
+        }
+    }
+
+    val kmiFlow: Flow<String> = context.settingsDataStore.data.map { prefs ->
+        prefs[kmiKey] ?: "android12-5.10"
+    }
+
+    suspend fun setKmi(kmi: String) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[kmiKey] = kmi
         }
     }
 }

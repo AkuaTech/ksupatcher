@@ -83,7 +83,8 @@ data class PatchState(
     val status: String? = null,
     val lastOutput: String? = null,
     val outputPath: String? = null,
-    val rebootRequired: Boolean = false
+    val rebootRequired: Boolean = false,
+    val kmi: String = "android12-5.10"
 )
 
 class MainViewModel(
@@ -115,6 +116,11 @@ class MainViewModel(
             settingsRepository.rootStatusFlow.collect { statusStr ->
                 val status = try { RootStatus.valueOf(statusStr) } catch (_: Exception) { RootStatus.UNKNOWN }
                 _state.update { it.copy(rootStatus = status) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.kmiFlow.collect { kmi ->
+                _state.update { it.copy(patchState = it.patchState.copy(kmi = kmi)) }
             }
         }
         refreshRootStatus()
@@ -175,6 +181,12 @@ class MainViewModel(
         val url = _state.value.versionUrl.trim()
         viewModelScope.launch {
             settingsRepository.setVersionUrl(url)
+        }
+    }
+
+    fun updateKmi(value: String) {
+        viewModelScope.launch {
+            settingsRepository.setKmi(value)
         }
     }
 
@@ -281,7 +293,7 @@ class MainViewModel(
         val magiskboot = File(workDir, "magiskboot").absolutePath
         val boot = _state.value.patchState.bootImagePath
         val module = _state.value.patchState.modulePath
-        val kmi = "android12-5.10"
+        val kmi = _state.value.patchState.kmi
         if (boot.isNullOrBlank() || module.isNullOrBlank()) {
             _state.update {
                 it.copy(patchState = it.patchState.copy(status = "Select boot.img and kernelsu.ko"))
@@ -319,7 +331,7 @@ class MainViewModel(
     fun runPatch() {
         val workDir = getWorkDir()
         val boot = _state.value.patchState.bootImagePath
-        val kmi = "android12-5.10"
+        val kmi = _state.value.patchState.kmi
 
         if (boot.isNullOrBlank()) {
             _state.update {
@@ -839,7 +851,7 @@ class MainViewModel(
                 ksud.absolutePath,
                 "boot-patch",
                 "-b", dumpedImg.absolutePath,
-                "--kmi", "android12-5.10",
+                "--kmi", _state.value.patchState.kmi,
                 "--magiskboot", magiskboot.absolutePath,
                 "--module", module,
                 "-o", workDir.absolutePath

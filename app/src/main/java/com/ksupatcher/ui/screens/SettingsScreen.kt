@@ -1,5 +1,6 @@
 package com.ksupatcher.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,7 +19,8 @@ import com.ksupatcher.viewmodel.UiState
 fun SettingsScreen(
     state: UiState,
     onRefreshVersion: () -> Unit,
-    onRefreshRoot: () -> Unit
+    onRefreshRoot: () -> Unit,
+    onUpdateKmi: (String) -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -41,6 +43,11 @@ fun SettingsScreen(
             status = state.rootStatus,
             isChecking = state.isCheckingRoot,
             onRefresh = onRefreshRoot
+        )
+
+        KmiSelectionCard(
+            selectedKmi = state.patchState.kmi,
+            onUpdateKmi = onUpdateKmi
         )
 
         Card(
@@ -157,5 +164,84 @@ fun InfoRow(label: String, value: String) {
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun KmiSelectionCard(
+    selectedKmi: String,
+    onUpdateKmi: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val kmis = com.ksupatcher.data.UpdateConfig.supportedKmis
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Kernel Module Interface (KMI)",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Text(
+                text = "Select your device's KMI version for compatible patching.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = selectedKmi,
+                    onValueChange = {},
+                    readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                )
+
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                ) {
+                    kmis.forEach { kmi ->
+                        DropdownMenuItem(
+                            text = { 
+                                Text(
+                                    text = kmi,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (kmi == selectedKmi) FontWeight.Bold else FontWeight.Normal
+                                ) 
+                            },
+                            onClick = {
+                                onUpdateKmi(kmi)
+                                expanded = false
+                            },
+                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                        )
+                    }
+                }
+            }
+        }
     }
 }

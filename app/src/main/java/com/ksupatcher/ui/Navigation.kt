@@ -113,7 +113,8 @@ fun KsuPatcherNavGraph(
                 SettingsScreen(
                     state = state,
                     onRefreshVersion = { viewModel.refreshVersion() },
-                    onRefreshRoot = { viewModel.refreshRootStatus() }
+                    onRefreshRoot = { viewModel.refreshRootStatus() },
+                    onUpdateKmi = { viewModel.updateKmi(it) }
                 )
             }
         }
