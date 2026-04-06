@@ -43,7 +43,7 @@ object RootShell {
             suStdin!!.newLine()
             suStdin!!.write("rc=$?")
             suStdin!!.newLine()
-            suStdin!!.write("printf '%s:%s\\n' '$marker' \"$rc\"")
+            suStdin!!.write("printf '%s:%s\\n' '$marker' \"${'$'}rc\"")
             suStdin!!.newLine()
             suStdin!!.flush()
 
