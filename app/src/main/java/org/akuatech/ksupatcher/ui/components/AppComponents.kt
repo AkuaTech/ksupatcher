@@ -286,11 +286,19 @@ fun RootStatusCard(
     val isGranted = status == org.akuatech.ksupatcher.viewmodel.RootStatus.GRANTED
     
     val containerColor = if (isGranted) 
-        Color(0xFF1B2E1E).copy(alpha = 0.9f) 
+        MaterialTheme.colorScheme.primaryContainer
     else 
-        Color(0xFF2E1B1B).copy(alpha = 0.9f)
+        MaterialTheme.colorScheme.errorContainer
     
-    val accentColor = if (isGranted) Color(0xFF4CAF50) else Color(0xFFF44336)
+    val contentColor = if (isGranted)
+        MaterialTheme.colorScheme.onPrimaryContainer
+    else
+        MaterialTheme.colorScheme.onErrorContainer
+        
+    val accentColor = if (isGranted) 
+        MaterialTheme.colorScheme.primary 
+    else 
+        MaterialTheme.colorScheme.error
     
     Card(
         shape = RoundedCornerShape(24.dp),
@@ -320,12 +328,12 @@ fun RootStatusCard(
                 Text(
                     text = if (isGranted) "Root Status: Granted" else "Root Status: Not Granted",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White
+                    color = contentColor
                 )
                 Text(
                     text = if (isGranted) "ᕙ(  •̀ ᗜ •́  )ᕗ" else "Please grant root access",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.7f)
+                    color = contentColor.copy(alpha = 0.7f)
                 )
             }
 
@@ -334,8 +342,8 @@ fun RootStatusCard(
                     onClick = { if (!isChecking) onRefresh() },
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.25f),
-                        contentColor = Color.White
+                        containerColor = contentColor.copy(alpha = 0.1f),
+                        contentColor = contentColor
                     ),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     modifier = Modifier.height(40.dp)
@@ -343,7 +351,7 @@ fun RootStatusCard(
                     if (isChecking) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            color = Color.White,
+                            color = contentColor,
                             strokeWidth = 2.dp
                         )
                     } else {
