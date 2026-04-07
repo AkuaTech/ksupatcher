@@ -11,6 +11,13 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
 
+fun inferKeystoreType(storeFilePath: String?): String? = when {
+    storeFilePath.isNullOrBlank() -> null
+    storeFilePath.endsWith(".p12", ignoreCase = true) || storeFilePath.endsWith(".pfx", ignoreCase = true) -> "PKCS12"
+    storeFilePath.endsWith(".jks", ignoreCase = true) || storeFilePath.endsWith(".keystore", ignoreCase = true) -> "JKS"
+    else -> null
+}
+
 android {
     namespace = "org.akuatech.ksupatcher"
     compileSdk = 35
@@ -31,10 +38,15 @@ android {
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {
-                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
+                val storeFilePath = keystoreProperties.getProperty("storeFile")
+                val configuredStoreType = keystoreProperties.getProperty("storeType")
+
+                storeFilePath?.let { storeFile = rootProject.file(it) }
+                configuredStoreType?.let { storeType = it }
+                    ?: inferKeystoreType(storeFilePath)?.let { storeType = it }
+                keystoreProperties.getProperty("storePassword")?.let { storePassword = it }
+                keystoreProperties.getProperty("keyAlias")?.let { keyAlias = it }
+                keystoreProperties.getProperty("keyPassword")?.let { keyPassword = it }
             }
         }
     }

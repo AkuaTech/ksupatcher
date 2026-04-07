@@ -1,6 +1,7 @@
 name: Build And Release APK
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - .github/workflows/release.yml
@@ -72,9 +73,10 @@ jobs:
               exit 1
             fi
           done
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > release.keystore
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > release-signing-key.p12
           {
-            printf 'storeFile=%s\n' "release.keystore"
+            printf 'storeFile=%s\n' "release-signing-key.p12"
+            printf 'storeType=%s\n' "PKCS12"
             printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
             printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
             printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
