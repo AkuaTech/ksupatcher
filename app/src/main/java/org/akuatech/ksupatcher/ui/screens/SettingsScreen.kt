@@ -17,6 +17,12 @@ import androidx.compose.ui.text.style.TextDecoration
 import org.akuatech.ksupatcher.ui.components.RootStatusCard
 import org.akuatech.ksupatcher.viewmodel.UiState
 import org.akuatech.ksupatcher.util.DateUtils
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import android.widget.Toast
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 
 @Composable
 fun SettingsScreen(
@@ -135,12 +141,14 @@ fun SettingsScreen(
                     InfoRow(
                         label = "Current Build", 
                         value = info.currentBuildHash,
-                        valueColor = MaterialTheme.colorScheme.onSurface
+                        valueColor = MaterialTheme.colorScheme.onSurface,
+                        copyable = true
                     )
                     InfoRow(
                         label = "Latest Release", 
                         value = info.latestReleaseHash,
-                        valueColor = MaterialTheme.colorScheme.onSurface
+                        valueColor = MaterialTheme.colorScheme.onSurface,
+                        copyable = true
                     )
                     InfoRow(
                         label = "Status",
@@ -239,7 +247,16 @@ fun InfoRow(label: String, value: String) {
 }
 
 @Composable
-fun InfoRow(label: String, value: String, valueColor: Color, onClick: (() -> Unit)? = null) {
+fun InfoRow(
+    label: String, 
+    value: String, 
+    valueColor: Color, 
+    onClick: (() -> Unit)? = null,
+    copyable: Boolean = false
+) {
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -252,13 +269,41 @@ fun InfoRow(label: String, value: String, valueColor: Color, onClick: (() -> Uni
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = valueColor,
-            fontWeight = FontWeight.SemiBold,
-            textDecoration = if (onClick != null) TextDecoration.Underline else null
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val modifier = if (copyable) {
+                Modifier.clickable {
+                    clipboardManager.setText(AnnotatedString(value))
+                    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                }.padding(horizontal = 4.dp, vertical = 2.dp)
+            } else {
+                Modifier
+            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = valueColor,
+                fontWeight = FontWeight.SemiBold,
+                textDecoration = if (onClick != null) TextDecoration.Underline else null,
+                modifier = modifier
+            )
+            if (copyable) {
+                Spacer(modifier = Modifier.width(6.dp))
+                IconButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(value))
+                        Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copy",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 
