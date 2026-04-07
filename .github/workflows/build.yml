@@ -1,0 +1,198 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/build.yml
+      - .github/workflows/release.yml
+      - gradlew
+      - gradlew.bat
+      - settings.gradle.kts
+      - build.gradle.kts
+      - gradle.properties
+      - gradle/wrapper/**
+      - app/build.gradle.kts
+      - app/proguard-rules.pro
+      - app/src/**
+  pull_request:
+    paths:
+      - .github/workflows/build.yml
+      - .github/workflows/release.yml
+      - gradlew
+      - gradlew.bat
+      - settings.gradle.kts
+      - build.gradle.kts
+      - gradle.properties
+      - gradle/wrapper/**
+      - app/build.gradle.kts
+      - app/proguard-rules.pro
+      - app/src/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ steps.meta.outputs.artifact_name }}
+      short_sha: ${{ steps.meta.outputs.short_sha }}
+    env:
+      ORG_GRADLE_PROJECT_ciVersionCode: ${{ github.run_number }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute build metadata
+        id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA::7}"
+          echo "SHORT_SHA=$short_sha" >> "$GITHUB_ENV"
+          echo "ORG_GRADLE_PROJECT_ciVersionName=$short_sha" >> "$GITHUB_ENV"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "artifact_name=ksupatcher-pr-$short_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "artifact_name=ksupatcher-release-$short_sha" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Prepare signing files
+        if: github.event_name != 'pull_request'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for var in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!var}" ]; then
+              echo "Missing required secret: $var" >&2
+              exit 1
+            fi
+          done
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > release-signing-key.p12
+          {
+            printf 'storeFile=%s\n' "release-signing-key.p12"
+            printf 'storeType=%s\n' "PKCS12"
+            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+          } > key.properties
+
+      - name: Build APK
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            ./gradlew --no-daemon assembleDebug
+          else
+            ./gradlew --no-daemon assembleRelease
+          fi
+
+      - name: Collect APK
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            apk_path="$(find app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+            artifact_apk="dist/ksupatcher-pr-${SHORT_SHA}.apk"
+          else
+            apk_path="$(find app/build/outputs/apk/release -name '*.apk' | head -n 1)"
+            artifact_apk="dist/ksupatcher-${SHORT_SHA}.apk"
+          fi
+          if [ -z "$apk_path" ]; then
+            echo "APK not found" >&2
+            exit 1
+          fi
+          cp "$apk_path" "$artifact_apk"
+          echo "ARTIFACT_APK=$artifact_apk" >> "$GITHUB_ENV"
+
+      - name: Generate SHA-256 file
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          checksum_file="${ARTIFACT_APK}.sha256"
+          cd "$(dirname "$ARTIFACT_APK")"
+          sha256sum "$(basename "$ARTIFACT_APK")" > "$(basename "$checksum_file")"
+          echo "ARTIFACT_SHA256=$checksum_file" >> "$GITHUB_ENV"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      SHORT_SHA: ${{ needs.build.outputs.short_sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate release notes
+        run: |
+          set -euo pipefail
+          release_notes_file="$RUNNER_TEMP/release-notes.txt"
+          git log -1 --pretty=%B > "$release_notes_file"
+          printf '\n\n(Automated release for commit %s)\n' "$GITHUB_SHA" >> "$release_notes_file"
+          echo "RELEASE_NOTES_FILE=$release_notes_file" >> "$GITHUB_ENV"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: dist
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_apk="$(find dist -name '*.apk' | head -n 1)"
+          release_sha256="$(find dist -name '*.sha256' | head -n 1)"
+          if [ -z "$release_apk" ] || [ -z "$release_sha256" ]; then
+            echo "Release artifacts not found" >&2
+            exit 1
+          fi
+          if gh release view "$SHORT_SHA" >/dev/null 2>&1; then
+            gh release upload "$SHORT_SHA" "$release_apk" "$release_sha256" --clobber
+            gh release edit "$SHORT_SHA" \
+              --notes-file "$RELEASE_NOTES_FILE"
+          else
+            gh release create "$SHORT_SHA" "$release_apk" "$release_sha256" \
+              --target "$GITHUB_SHA" \
+              --title "$SHORT_SHA" \
+              --notes-file "$RELEASE_NOTES_FILE"
+          fi
