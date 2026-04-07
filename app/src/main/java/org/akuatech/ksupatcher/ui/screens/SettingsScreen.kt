@@ -23,6 +23,11 @@ import androidx.compose.ui.text.AnnotatedString
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.ui.res.painterResource
+import org.akuatech.ksupatcher.R
+import org.akuatech.ksupatcher.BuildConfig
+import java.time.Year
 
 @Composable
 fun SettingsScreen(
@@ -238,6 +243,10 @@ fun SettingsScreen(
                 }
             }
         }
+
+        AboutCard(buildHash = state.appUpdateInfo?.currentBuildHash ?: BuildConfig.VERSION_NAME)
+        
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
@@ -258,9 +267,7 @@ fun InfoRow(
     val context = LocalContext.current
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -275,6 +282,8 @@ fun InfoRow(
                     clipboardManager.setText(AnnotatedString(value))
                     Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                 }.padding(horizontal = 4.dp, vertical = 2.dp)
+            } else if (onClick != null) {
+                Modifier.clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 2.dp)
             } else {
                 Modifier
             }
@@ -442,6 +451,89 @@ fun AppearanceCard(
                     }
                 }
             }
+        }
+    }
+}
+@Composable
+fun AboutCard(buildHash: String) {
+    val uriHandler = LocalUriHandler.current
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                modifier = Modifier.size(80.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    androidx.compose.foundation.Image(
+                        painter = painterResource(id = R.mipmap.ic_launcher_logo),
+                        contentDescription = "Ksupatcher Logo",
+                        modifier = Modifier.size(56.dp)
+                    )
+                }
+            }
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "KSUPatcher",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Text(
+                    text = "Build $buildHash",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+
+            Text(
+                text = "Developed by AkuaTech",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+
+            FilledTonalButton(
+                onClick = { uriHandler.openUri("https://github.com/akuatech/ksupatcher") },
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.padding(top = 8.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Code,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text("GitHub Repository", style = MaterialTheme.typography.labelLarge)
+            }
+
+            Text(
+                text = "© ${Year.now().value} AkuaTech • All rights reserved",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.padding(top = 8.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
