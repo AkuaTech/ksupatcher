@@ -99,9 +99,9 @@ class MainViewModel(
 
     constructor(application: Application) : this(
         application = application,
-        downloadRepository = DownloadRepository(),
+        downloadRepository = DownloadRepository(httpClient),
         settingsRepository = SettingsRepository(application),
-        releaseRepository = GitHubReleaseRepository()
+        releaseRepository = GitHubReleaseRepository(httpClient)
     )
 
     private val _state = MutableStateFlow(UiState())
@@ -1012,6 +1012,7 @@ class MainViewModel(
     }
 
     private companion object {
+        val httpClient = okhttp3.OkHttpClient()
         const val MAX_LOG_CHARS = 64_000
         const val STREAM_LOG_EMIT_LINES = 8
         const val STREAM_LOG_EMIT_INTERVAL_MS = 200L
