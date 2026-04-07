@@ -698,15 +698,6 @@ class MainViewModel(
         }
     }
 
-    private fun appendLogLine(existing: String?, message: String): String {
-        val combined = if (existing.isNullOrBlank()) {
-            message
-        } else {
-            "$existing\n$message"
-        }
-        return if (combined.length > MAX_LOG_CHARS) combined.takeLast(MAX_LOG_CHARS) else combined
-    }
-
     private fun publishStreamingLog(log: String, updatePatch: Boolean) {
         _state.update { state ->
             val trimmed = if (log.length > MAX_LOG_CHARS) log.takeLast(MAX_LOG_CHARS) else log
@@ -769,11 +760,19 @@ class MainViewModel(
     private suspend fun executeOtaFlow(lkmMode: Boolean) {
         fun appendLog(msg: String) {
             _state.update { state ->
+                val sb = StringBuilder()
+                val existing = if (lkmMode) state.patchState.lastOutput else state.otaState.log
+                if (!existing.isNullOrBlank()) {
+                    appendTrimmed(sb, existing)
+                    appendTrimmed(sb, "\n")
+                }
+                appendTrimmed(sb, msg)
+                val output = sb.toString()
+
                 if (lkmMode) {
-                    val newOutput = appendLogLine(state.patchState.lastOutput, msg)
-                    state.copy(patchState = state.patchState.copy(lastOutput = newOutput))
+                    state.copy(patchState = state.patchState.copy(lastOutput = output))
                 } else {
-                    state.copy(otaState = state.otaState.copy(log = appendLogLine(state.otaState.log, msg)))
+                    state.copy(otaState = state.otaState.copy(log = output))
                 }
             }
         }
