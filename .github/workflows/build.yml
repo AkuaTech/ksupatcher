@@ -42,11 +42,11 @@ jobs:
     outputs:
       artifact_name: ${{ steps.meta.outputs.artifact_name }}
       short_sha: ${{ steps.meta.outputs.short_sha }}
-    env:
-      ORG_GRADLE_PROJECT_ciVersionCode: ${{ github.run_number }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Compute build metadata
         id: meta
@@ -55,7 +55,9 @@ jobs:
         run: |
           set -euo pipefail
           short_sha="${GITHUB_SHA::7}"
+          version_code="$((10000 + $(git rev-list --count HEAD)))"
           echo "SHORT_SHA=$short_sha" >> "$GITHUB_ENV"
+          echo "ORG_GRADLE_PROJECT_ciVersionCode=$version_code" >> "$GITHUB_ENV"
           echo "ORG_GRADLE_PROJECT_ciVersionName=$short_sha" >> "$GITHUB_ENV"
           echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
 
