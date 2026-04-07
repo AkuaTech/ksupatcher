@@ -135,7 +135,7 @@ class MainViewModel(
 
     fun refreshRootStatus() {
         _state.update { it.copy(isCheckingRoot = true) }
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             val isRooted = RootShell.isRooted()
             val status = if (isRooted) RootStatus.GRANTED else RootStatus.NOT_GRANTED
             settingsRepository.setRootStatus(status.name)

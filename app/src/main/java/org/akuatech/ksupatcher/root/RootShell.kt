@@ -84,9 +84,9 @@ object RootShell {
         }
     }
 
-    fun isRooted(): Boolean {
+    suspend fun isRooted(): Boolean = withContext(Dispatchers.IO) {
         val (success, out, _) = runRootBlock("id")
-        return success && out.contains("uid=0(root)")
+        success && out.contains("uid=0(root)")
     }
 
     suspend fun run(vararg cmds: String): String = withContext(Dispatchers.IO) {
