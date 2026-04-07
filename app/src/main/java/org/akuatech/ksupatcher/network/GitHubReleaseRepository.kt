@@ -64,7 +64,7 @@ class GitHubReleaseRepository(
                         checksumDownloadUrl = checksumAsset?.optString("browser_download_url")?.ifBlank { null },
                         releaseUrl = release.optString("html_url").ifBlank { null },
                         publishedAt = release.optString("published_at").ifBlank { null },
-                        notes = release.optString("body").ifBlank { null }
+                        notes = release.optString("body").trim().ifBlank { null }
                     )
                 }
             }

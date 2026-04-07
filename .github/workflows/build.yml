@@ -176,7 +176,7 @@ jobs:
               }
             }
           ' > "$release_notes_file"
-          printf '\n\n(Automated release for commit %s)\n' "$GITHUB_SHA" >> "$release_notes_file"
+          printf '\n(Automated release for commit %s)\n' "$GITHUB_SHA" >> "$release_notes_file"
           echo "RELEASE_NOTES_FILE=$release_notes_file" >> "$GITHUB_ENV"
 
       - name: Download build artifacts
