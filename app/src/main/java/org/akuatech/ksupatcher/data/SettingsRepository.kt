@@ -14,6 +14,7 @@ class SettingsRepository(
 ) {
     private val rootStatusKey = stringPreferencesKey("root_status")
     private val kmiKey = stringPreferencesKey("kmi_version")
+    private val themeModeKey = stringPreferencesKey("theme_mode")
 
     val rootStatusFlow: Flow<String> = context.settingsDataStore.data.map { prefs ->
         prefs[rootStatusKey] ?: "UNKNOWN"
@@ -32,6 +33,16 @@ class SettingsRepository(
     suspend fun setKmi(kmi: String) {
         context.settingsDataStore.edit { prefs ->
             prefs[kmiKey] = kmi
+        }
+    }
+
+    val themeModeFlow: Flow<String> = context.settingsDataStore.data.map { prefs ->
+        prefs[themeModeKey] ?: "auto"
+    }
+
+    suspend fun setThemeMode(mode: String) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[themeModeKey] = mode
         }
     }
 }

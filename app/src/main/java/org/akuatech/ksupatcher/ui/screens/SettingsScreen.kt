@@ -24,7 +24,8 @@ fun SettingsScreen(
     onRefreshVersion: () -> Unit,
     onRefreshRoot: () -> Unit,
     onInstallAppUpdate: () -> Unit,
-    onUpdateKmi: (String) -> Unit
+    onUpdateKmi: (String) -> Unit,
+    onUpdateTheme: (String) -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -52,6 +53,11 @@ fun SettingsScreen(
         KmiSelectionCard(
             selectedKmi = state.patchState.kmi,
             onUpdateKmi = onUpdateKmi
+        )
+
+        AppearanceCard(
+            themeMode = state.themeMode,
+            onUpdateTheme = onUpdateTheme
         )
 
         Card(
@@ -322,6 +328,71 @@ fun KmiSelectionCard(
                                 onUpdateKmi(kmi)
                                 expanded = false
                             }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppearanceCard(
+    themeMode: String,
+    onUpdateTheme: (String) -> Unit
+) {
+    val options = listOf(
+        "auto"  to "Auto",
+        "light" to "Light",
+        "dark"  to "Dark"
+    )
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Appearance",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Text(
+                text = "Choose how the app looks.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                options.forEachIndexed { index, (value, label) ->
+                    SegmentedButton(
+                        selected = themeMode == value,
+                        onClick = { onUpdateTheme(value) },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = options.size
+                        ),
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            activeContentColor = MaterialTheme.colorScheme.primary,
+                            activeBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                            inactiveBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = if (themeMode == value) FontWeight.SemiBold else FontWeight.Normal
+                            )
                         )
                     }
                 }

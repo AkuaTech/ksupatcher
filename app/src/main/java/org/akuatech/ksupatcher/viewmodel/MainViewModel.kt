@@ -72,7 +72,8 @@ data class UiState(
     val patchState: PatchState = PatchState(),
     val otaState: OtaState = OtaState(),
     val rootStatus: RootStatus = RootStatus.UNKNOWN,
-    val isCheckingRoot: Boolean = false
+    val isCheckingRoot: Boolean = false,
+    val themeMode: String = "auto"
 )
 
 data class PatchState(
@@ -119,6 +120,11 @@ class MainViewModel(
         viewModelScope.launch {
             settingsRepository.kmiFlow.collect { kmi ->
                 _state.update { it.copy(patchState = it.patchState.copy(kmi = kmi)) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.themeModeFlow.collect { mode ->
+                _state.update { it.copy(themeMode = mode) }
             }
         }
         refreshRootStatus()
@@ -237,6 +243,12 @@ class MainViewModel(
     fun updateKmi(value: String) {
         viewModelScope.launch {
             settingsRepository.setKmi(value)
+        }
+    }
+
+    fun setThemeMode(mode: String) {
+        viewModelScope.launch {
+            settingsRepository.setThemeMode(mode)
         }
     }
 
