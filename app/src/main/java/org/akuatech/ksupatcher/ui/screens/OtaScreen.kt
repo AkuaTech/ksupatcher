@@ -10,6 +10,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -275,9 +277,10 @@ fun OtaScreen(
 
 @Composable
 private fun PhaseStatusCard(otaState: OtaState) {
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val (iconColor, icon, label) = when (otaState.phase) {
         OtaPhase.DONE ->
-            Triple(MaterialTheme.colorScheme.tertiary, Icons.Filled.CheckCircle, "Complete")
+            Triple(if (isDark) SuccessGreen else Color(0xFF2E7D32), Icons.Filled.CheckCircle, "Complete")
         OtaPhase.ERROR ->
             Triple(MaterialTheme.colorScheme.error, Icons.Filled.Error, "Error")
         OtaPhase.NO_ROOT ->
@@ -288,11 +291,32 @@ private fun PhaseStatusCard(otaState: OtaState) {
             Triple(MaterialTheme.colorScheme.primary, Icons.Filled.Sync, phaseLabel(otaState.phase))
     }
 
+    val containerColor = if (otaState.phase == OtaPhase.DONE) {
+        if (isDark) SuccessGreen.copy(alpha = 0.15f) else Color(0xFFE8F5E9)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    }
+
+    val titleColor = if (otaState.phase == OtaPhase.DONE) {
+        if (isDark) Color(0xFFA5D6A7) else Color(0xFF002208)
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
+    val subtitleColor = if (otaState.phase == OtaPhase.DONE) {
+        titleColor.copy(alpha = 0.7f)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     AppStatusCard(
         title = label,
         subtitle = if (otaState.currentSlot != null) "Current: ${otaState.currentSlot} → Target: ${otaState.nextSlot ?: "—"}" else "OTA Update Phase",
         icon = icon,
-        iconColor = iconColor
+        iconColor = iconColor,
+        titleColor = titleColor,
+        subtitleColor = subtitleColor,
+        containerColor = containerColor
     )
 }
 

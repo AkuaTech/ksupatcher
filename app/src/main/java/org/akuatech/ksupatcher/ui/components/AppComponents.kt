@@ -3,6 +3,7 @@ package org.akuatech.ksupatcher.ui.components
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
@@ -38,6 +40,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 private val client = OkHttpClient()
+
+val SuccessGreen = Color(0xFF4CAF50)
+val SuccessGreenDark = Color(0xFF2E7D32)
 
 @Composable
 fun NetworkImage(
@@ -90,6 +95,9 @@ fun AppStatusCard(
     subtitle: String,
     icon: ImageVector = Icons.Default.Info,
     iconColor: Color = MaterialTheme.colorScheme.primary,
+    titleColor: Color = MaterialTheme.colorScheme.onSurface,
+    subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
     onAction: (() -> Unit)? = null,
     actionLabel: String? = null,
     modifier: Modifier = Modifier
@@ -97,7 +105,7 @@ fun AppStatusCard(
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = containerColor
         ),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -123,12 +131,12 @@ fun AppStatusCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = titleColor
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = subtitleColor
                 )
             }
             if (onAction != null && actionLabel != null) {
@@ -285,20 +293,25 @@ fun RootStatusCard(
 ) {
     val isGranted = status == org.akuatech.ksupatcher.viewmodel.RootStatus.GRANTED
     
-    val containerColor = if (isGranted) 
-        MaterialTheme.colorScheme.primaryContainer
-    else 
-        MaterialTheme.colorScheme.errorContainer
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     
-    val contentColor = if (isGranted)
-        MaterialTheme.colorScheme.onPrimaryContainer
-    else
+    val containerColor = if (isGranted) {
+        if (isDark) SuccessGreen.copy(alpha = 0.15f) else Color(0xFFE8F5E9)
+    } else {
+        MaterialTheme.colorScheme.errorContainer
+    }
+    
+    val contentColor = if (isGranted) {
+        if (isDark) Color(0xFFA5D6A7) else Color(0xFF002208)
+    } else {
         MaterialTheme.colorScheme.onErrorContainer
-        
-    val accentColor = if (isGranted) 
-        MaterialTheme.colorScheme.primary 
-    else 
+    }
+    
+    val accentColor = if (isGranted) {
+        if (isDark) SuccessGreen else Color(0xFF2E7D32)
+    } else {
         MaterialTheme.colorScheme.error
+    }
     
     Card(
         shape = RoundedCornerShape(24.dp),

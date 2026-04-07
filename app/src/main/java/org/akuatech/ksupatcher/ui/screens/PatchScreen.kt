@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -312,20 +313,21 @@ fun PatchScreen(
 
             if (!patch.isPatching && !patch.status.isNullOrBlank()) {
                 val isFailed = patch.status.contains("failed", ignoreCase = true) || patch.status.contains("error", ignoreCase = true)
+                val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                 Card(
                     shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (isFailed)
                             MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
                         else
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                            if (isDark) SuccessGreen.copy(alpha = 0.15f) else Color(0xFFE8F5E9)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = patch.status,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = if (isFailed) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = if (isFailed) Color.White else (if (isDark) Color(0xFFA5D6A7) else Color(0xFF002208)),
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     )
                 }
