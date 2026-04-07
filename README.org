@@ -1,6 +1,6 @@
 #+TITLE: KSUPatcher
 
-#+HTML: <p align="center"><img width="200px" src="./app/src/main/res/mipmap-xxxhdpi/ic_launcher_logoj.jpg"></p>
+#+HTML: <p align="center"><img width="200px" src="./app/src/main/res/mipmap-xxxhdpi/ic_launcher_logo.png"></p>
 
 * Table of contents
 :PROPERTIES:
