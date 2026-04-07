@@ -127,6 +127,11 @@ class MainViewModel(
                 _state.update { it.copy(themeMode = mode) }
             }
         }
+        viewModelScope.launch {
+            settingsRepository.lastVersionCheckFlow.collect { timestamp ->
+                _state.update { it.copy(lastVersionCheck = timestamp) }
+            }
+        }
         refreshRootStatus()
         refreshVersion(isAutoCheck = true)
     }
@@ -150,13 +155,15 @@ class MainViewModel(
                 repo = UpdateConfig.appRepo,
                 currentBuildHash = currentBuildHash
             )
+            val timestamp = Instant.now().toString()
+            settingsRepository.setLastVersionCheck(timestamp)
             _state.update { current ->
                 val error = if (isAutoCheck) null else result.exceptionOrNull()?.message
                 current.copy(
                     isCheckingVersion = false,
                     appUpdateInfo = result.getOrNull(),
                     versionError = error,
-                    lastVersionCheck = Instant.now().toString()
+                    lastVersionCheck = timestamp
                 )
             }
         }
