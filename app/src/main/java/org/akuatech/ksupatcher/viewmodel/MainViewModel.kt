@@ -14,7 +14,6 @@ import org.akuatech.ksupatcher.data.SettingsRepository
 import org.akuatech.ksupatcher.data.UpdateConfig
 import org.akuatech.ksupatcher.network.DownloadRepository
 import org.akuatech.ksupatcher.network.GitHubReleaseRepository
-import org.akuatech.ksupatcher.network.UpdateRepository
 import org.akuatech.ksupatcher.root.RootShell
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -93,7 +92,6 @@ data class PatchState(
 
 class MainViewModel(
     application: Application,
-    private val updateRepository: UpdateRepository,
     private val downloadRepository: DownloadRepository,
     private val settingsRepository: SettingsRepository,
     private val releaseRepository: GitHubReleaseRepository
@@ -101,7 +99,6 @@ class MainViewModel(
 
     constructor(application: Application) : this(
         application = application,
-        updateRepository = UpdateRepository(),
         downloadRepository = DownloadRepository(),
         settingsRepository = SettingsRepository(application),
         releaseRepository = GitHubReleaseRepository()
@@ -150,7 +147,7 @@ class MainViewModel(
         _state.update { it.copy(isCheckingVersion = true, versionError = null, appUpdateError = null) }
         viewModelScope.launch {
             val currentBuildHash = BuildConfig.VERSION_NAME.trim()
-            val result = updateRepository.fetchAppUpdateInfo(
+            val result = releaseRepository.fetchAppUpdateInfo(
                 owner = UpdateConfig.appOwner,
                 repo = UpdateConfig.appRepo,
                 currentBuildHash = currentBuildHash
