@@ -980,14 +980,6 @@ class MainViewModel(
             }
 
             setPhase(OtaPhase.DONE)
-            if (!lkmMode) {
-                appendLog("$ bootctl set-active-boot-slot ${targetSlot.replace("_", "")}")
-                try {
-                    RootShell.run("bootctl set-active-boot-slot ${targetSlot.replace("_", "")}")
-                } catch (e: Throwable) {
-                    appendLog("Warning: Failed to switch slot automatically: ${e.message}")
-                }
-            }
             
             _state.update {
                 if (lkmMode) {

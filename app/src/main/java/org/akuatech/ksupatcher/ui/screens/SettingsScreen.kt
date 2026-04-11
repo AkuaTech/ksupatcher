@@ -53,7 +53,7 @@ fun SettingsScreen(
             .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
             text = "Settings",
