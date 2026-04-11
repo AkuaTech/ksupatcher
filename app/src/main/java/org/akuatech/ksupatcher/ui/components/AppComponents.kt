@@ -209,7 +209,7 @@ fun AppActionTile(
                     Image(
                         painter = painterResource(id = drawableRes),
                         contentDescription = null,
-                        modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp))
+                        modifier = Modifier.size(28.dp)
                     )
                 } else if (imageUrl != null) {
                     NetworkImage(

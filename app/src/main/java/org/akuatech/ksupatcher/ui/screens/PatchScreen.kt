@@ -283,7 +283,7 @@ fun PatchScreen(
                 }
             }
 
-            if (patch.method == InstallMethod.LKM && state.rootStatus != org.akuatech.ksupatcher.viewmodel.RootStatus.GRANTED) {
+            if (patch.method == InstallMethod.LKM && !state.isCheckingRoot && state.rootStatus != org.akuatech.ksupatcher.viewmodel.RootStatus.GRANTED) {
                 Card(
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(
@@ -448,8 +448,7 @@ fun UpdateNotificationCard(onClick: () -> Unit) {
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
         ),
-        modifier = Modifier.fillMaxWidth(),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier.padding(16.dp),

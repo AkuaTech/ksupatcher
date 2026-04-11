@@ -38,6 +38,7 @@ import org.akuatech.ksupatcher.viewmodel.RootStatus
 fun OtaScreen(
     otaState: OtaState,
     rootStatus: RootStatus,
+    isCheckingRoot: Boolean,
     variant: KsuVariant,
     moduleName: String?,
     onVariantSelected: (KsuVariant) -> Unit,
@@ -167,7 +168,7 @@ fun OtaScreen(
             }
         }
 
-        if (otaState.phase == OtaPhase.IDLE && rootStatus != RootStatus.GRANTED) {
+        if (otaState.phase == OtaPhase.IDLE && !isCheckingRoot && rootStatus != RootStatus.GRANTED) {
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
