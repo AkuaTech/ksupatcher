@@ -316,7 +316,7 @@ fun PatchScreen(
                     Text(
                         text = patch.status,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = if (isFailed) Color.White else (if (isDark) Color(0xFFA5D6A7) else Color(0xFF002208)),
+                        color = if (isFailed) MaterialTheme.colorScheme.onError else (if (isDark) Color(0xFFA5D6A7) else Color(0xFF002208)),
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     )
                 }
@@ -447,12 +447,11 @@ fun FileSelector(
 
 @Composable
 fun UpdateNotificationCard(onClick: () -> Unit) {
-    val accentBlue = Color(0xFF62A0EA)
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF62A0EA).copy(alpha = 0.08f),
-        border = BorderStroke(1.dp, Color(0xFF62A0EA).copy(alpha = 0.25f)),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -468,19 +467,19 @@ fun UpdateNotificationCard(onClick: () -> Unit) {
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.5.sp,
-                        color = accentBlue
+                        color = MaterialTheme.colorScheme.primary
                     )
                 )
                 Text(
                     text = "A new version is available",
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Icon(
                 imageVector = Icons.Filled.ChevronRight,
                 contentDescription = null,
-                tint = accentBlue.copy(alpha = 0.5f),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                 modifier = Modifier.size(18.dp)
             )
         }
