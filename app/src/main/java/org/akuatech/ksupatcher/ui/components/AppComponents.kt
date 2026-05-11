@@ -1,6 +1,7 @@
 package org.akuatech.ksupatcher.ui.components
 
 import android.graphics.BitmapFactory
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,9 +34,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -168,9 +172,12 @@ fun AppActionTile(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) 
+        color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-        border = if (selected) ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp, brush = SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))) else null,
+        border = if (selected)
+            BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+        else
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
         modifier = modifier.height(84.dp)
     ) {
         Row(
@@ -194,14 +201,14 @@ fun AppActionTile(
                     )
                 }
             }
-            
+
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(34.dp)
                     .background(
                         if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), 
-                        RoundedCornerShape(10.dp)
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                        RoundedCornerShape(9.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -209,19 +216,19 @@ fun AppActionTile(
                     Image(
                         painter = painterResource(id = drawableRes),
                         contentDescription = null,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 } else if (imageUrl != null) {
                     NetworkImage(
                         url = imageUrl,
-                        modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp))
+                        modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp))
                     )
                 } else if (icon != null) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
                         tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -261,7 +268,10 @@ fun AppStepHeader(
         ) {
             Text(
                 text = number,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                ),
                 color = MaterialTheme.colorScheme.primary
             )
         }
@@ -280,7 +290,7 @@ fun StepConnector(modifier: Modifier = Modifier) {
             .padding(start = 13.dp)
             .width(2.dp)
             .height(24.dp)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
     )
 }
 
@@ -379,6 +389,35 @@ fun RootStatusCard(
     }
 }
 
+
+@Composable
+fun RootRequiredBanner(modifier: Modifier = Modifier) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+        ),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = "Root access is required.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
+    }
+}
 
 @Composable
 fun TerminalView(

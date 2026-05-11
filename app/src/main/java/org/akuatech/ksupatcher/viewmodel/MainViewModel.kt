@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.app.Application
 import android.content.ClipData
 import android.content.Intent
+import android.provider.Settings
 import org.akuatech.ksupatcher.BuildConfig
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -73,7 +74,9 @@ data class UiState(
     val otaState: OtaState = OtaState(),
     val rootStatus: RootStatus = RootStatus.UNKNOWN,
     val isCheckingRoot: Boolean = false,
-    val themeMode: String = "auto"
+    val themeMode: String = "auto",
+    val showDisclaimer: Boolean = true,
+    val showInstallPermissionRationale: Boolean = false
 )
 
 data class PatchState(
@@ -131,8 +134,33 @@ class MainViewModel(
                 _state.update { it.copy(lastVersionCheck = timestamp) }
             }
         }
+        viewModelScope.launch {
+            settingsRepository.disclaimerAcceptedFlow.collect { accepted ->
+                _state.update { it.copy(showDisclaimer = !accepted) }
+            }
+        }
         refreshRootStatus()
         refreshVersion(isAutoCheck = true)
+    }
+
+    fun acceptDisclaimer() {
+        viewModelScope.launch {
+            settingsRepository.setDisclaimerAccepted()
+        }
+    }
+
+    fun dismissInstallPermissionRationale() {
+        _state.update { it.copy(showInstallPermissionRationale = false) }
+    }
+
+    fun openInstallPermissionSettings() {
+        val context = getApplication<Application>()
+        val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+            data = Uri.parse("package:${BuildConfig.APPLICATION_ID}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+        _state.update { it.copy(showInstallPermissionRationale = false) }
     }
 
     fun refreshRootStatus() {
@@ -169,6 +197,11 @@ class MainViewModel(
     }
 
     fun installAppUpdate() {
+        val context = getApplication<Application>()
+        if (!context.packageManager.canRequestPackageInstalls()) {
+            _state.update { it.copy(showInstallPermissionRationale = true) }
+            return
+        }
         val updateInfo = _state.value.appUpdateInfo
         if (updateInfo == null || !updateInfo.isUpdateAvailable) {
             _state.update {

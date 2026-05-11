@@ -25,8 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import org.akuatech.ksupatcher.ui.components.*
 import org.akuatech.ksupatcher.viewmodel.KsuVariant
@@ -168,36 +171,12 @@ fun OtaScreen(
             }
         }
 
-        if (otaState.phase == OtaPhase.IDLE && !isCheckingRoot && rootStatus != RootStatus.GRANTED) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Warning,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                    Text(
-                        "Root permission is required to perform OTA patching.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-        }
-
         if (!isRunning) {
             if (otaState.phase == OtaPhase.IDLE) {
+                if (!isCheckingRoot && rootStatus != RootStatus.GRANTED) {
+                    RootRequiredBanner()
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
                 Button(
                     onClick = onRunOta,
                     enabled = rootStatus == RootStatus.GRANTED,
@@ -264,9 +243,15 @@ fun OtaScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "Terminal Output",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF9098A9),
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(color = Color(0xFF62A0EA), fontFamily = FontFamily.Monospace)) {
+                                append("$ ")
+                            }
+                            withStyle(SpanStyle(color = Color(0xFF9098A9))) {
+                                append("terminal output")
+                            }
+                        },
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     TerminalView(log = otaState.log.trimStart('\n'))

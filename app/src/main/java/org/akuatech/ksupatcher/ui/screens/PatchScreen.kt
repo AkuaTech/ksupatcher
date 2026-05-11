@@ -25,12 +25,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.text.style.TextOverflow
 import org.akuatech.ksupatcher.ui.components.*
 import org.akuatech.ksupatcher.viewmodel.InstallMethod
 import org.akuatech.ksupatcher.viewmodel.KsuVariant
@@ -235,9 +240,12 @@ fun PatchScreen(
             }
 
             if (showStartButton) {
+                if (patch.method == InstallMethod.LKM && !state.isCheckingRoot && state.rootStatus != RootStatus.GRANTED) {
+                    RootRequiredBanner()
+                }
                 Button(
                     onClick = { if (patch.method == InstallMethod.PATCH) onRunPatch() else onRunLkm() },
-                    enabled = patch.method == InstallMethod.PATCH || state.rootStatus == org.akuatech.ksupatcher.viewmodel.RootStatus.GRANTED,
+                    enabled = patch.method == InstallMethod.PATCH || state.rootStatus == RootStatus.GRANTED,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(64.dp),
@@ -292,34 +300,6 @@ fun PatchScreen(
                 }
             }
 
-            if (patch.method == InstallMethod.LKM && !state.isCheckingRoot && state.rootStatus != org.akuatech.ksupatcher.viewmodel.RootStatus.GRANTED) {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            Icons.Filled.Warning,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = "Root permission is required.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    }
-                }
-            }
-
             if (!patch.isPatching && !patch.status.isNullOrBlank()) {
                 val isFailed = patch.status.contains("failed", ignoreCase = true) || patch.status.contains("error", ignoreCase = true)
                 val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -365,9 +345,15 @@ fun PatchScreen(
                         .animateContentSize()
                 ) {
                     Text(
-                        "Terminal Output",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF9098A9)
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(color = Color(0xFF62A0EA), fontFamily = FontFamily.Monospace)) {
+                                append("$ ")
+                            }
+                            withStyle(SpanStyle(color = Color(0xFF9098A9))) {
+                                append("terminal output")
+                            }
+                        },
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                     )
                     
                     Spacer(modifier = Modifier.height(12.dp))
@@ -426,24 +412,34 @@ fun FileSelector(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
         border = null
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .padding(horizontal = 20.dp, vertical = 16.dp)
-                .fillMaxWidth()
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = fileName ?: placeholder,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = if (fileName != null) FontWeight.Medium else FontWeight.Normal
-                ),
-                color = if (fileName != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                maxLines = 1
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = fileName ?: placeholder,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = if (fileName != null) FontWeight.Medium else FontWeight.Normal
+                    ),
+                    color = if (fileName != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                modifier = Modifier.size(20.dp)
             )
         }
     }
@@ -451,29 +447,41 @@ fun FileSelector(
 
 @Composable
 fun UpdateNotificationCard(onClick: () -> Unit) {
-    Card(
+    val accentBlue = Color(0xFF62A0EA)
+    Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-        ),
+        color = Color(0xFF62A0EA).copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, Color(0xFF62A0EA).copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = "NEW VERSION",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.5.sp,
+                        color = accentBlue
+                    )
+                )
+                Text(
+                    text = "A new version is available",
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Icon(
-                Icons.Filled.SystemUpdate,
+                imageVector = Icons.Filled.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(24.dp)
-            )
-            Text(
-                text = "Update is available, click to upgrade!",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.error
+                tint = accentBlue.copy(alpha = 0.5f),
+                modifier = Modifier.size(18.dp)
             )
         }
     }

@@ -17,6 +17,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import org.akuatech.ksupatcher.ui.components.DisclaimerDialog
+import org.akuatech.ksupatcher.ui.components.InstallPermissionRationaleDialog
 import org.akuatech.ksupatcher.ui.screens.OtaScreen
 import org.akuatech.ksupatcher.ui.screens.PatchScreen
 import org.akuatech.ksupatcher.ui.screens.SettingsScreen
@@ -42,6 +44,17 @@ fun KsuPatcherNavGraph(
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+
+    if (state.showDisclaimer) {
+        DisclaimerDialog(onAccept = viewModel::acceptDisclaimer)
+    }
+
+    if (state.showInstallPermissionRationale) {
+        InstallPermissionRationaleDialog(
+            onOpenSettings = viewModel::openInstallPermissionSettings,
+            onDismiss = viewModel::dismissInstallPermissionRationale
+        )
+    }
 
     Scaffold(
         bottomBar = {
