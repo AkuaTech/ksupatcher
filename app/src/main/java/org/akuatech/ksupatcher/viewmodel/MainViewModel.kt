@@ -31,7 +31,6 @@ import android.os.Environment
 import android.os.SystemClock
 import android.provider.MediaStore
 import java.security.MessageDigest
-import java.util.Locale
 import java.time.Instant
 
 enum class KsuVariant { KSU, KSUN }
@@ -111,6 +110,8 @@ class MainViewModel(
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state
+
+    private val engine = KsuEngine(application, downloadRepository, releaseRepository)
 
     init {
         viewModelScope.launch {
@@ -555,18 +556,7 @@ class MainViewModel(
         }
     }
 
-    private fun findPatchedImage(workDir: File): File? {
-        val candidates = workDir.listFiles()?.filter { file ->
-            val name = file.name.lowercase(Locale.ROOT)
-            file.isFile && name.endsWith(".img") && (
-                name.startsWith("kernelsu_") ||
-                    name.contains("patched") ||
-                    name == "boot-patched.img"
-                )
-        } ?: emptyList()
-
-        return candidates.maxByOrNull { it.lastModified() }
-    }
+    private fun findPatchedImage(workDir: File): File? = engine.findPatchedImage(workDir)
 
     private fun exportPatchedImage(sourceFile: File): Result<String> = runCatching {
         val context = getApplication<Application>()
@@ -623,86 +613,26 @@ class MainViewModel(
         return dir
     }
 
-    private fun getWorkDir(): File {
-        val dir = File(getApplication<Application>().codeCacheDir, "work")
-        if (!dir.exists()) {
-            dir.mkdirs()
-        }
-        return dir
-    }
+    private fun getWorkDir(): File = engine.workDir()
 
-    private suspend fun ensureBinaries(): Result<Unit> {
-        return withContext(Dispatchers.IO) {
-            runCatching {
-                val context = getApplication<Application>()
-                val workDir = getWorkDir()
-
-                val legacyWorkDir = File(context.filesDir, "work")
-                File(legacyWorkDir, "ksud").delete()
-
-            val ksud = resolveBundledBinaryForVariant(_state.value.patchState.variant)
-                ksud.setExecutable(true, false)
-
-                if (!ksud.canExecute()) {
-                    error(
-                        "Bundled binary is not executable. " +
-                            "ksud=${ksud.absolutePath} canExec=${ksud.canExecute()}, "
+    private suspend fun ensureBinaries(): Result<Unit> = runCatching {
+        val variant = _state.value.patchState.variant
+        engine.prepareKsud(variant)
+        if (_state.value.patchState.modulePath.isNullOrBlank()) {
+            val (name, path) = engine.resolveModule(variant, null).getOrThrow()
+            _state.update {
+                it.copy(
+                    patchState = it.patchState.copy(
+                        moduleName = name ?: it.patchState.moduleName,
+                        modulePath = path
                     )
-                }
-
-                if (_state.value.patchState.modulePath.isNullOrBlank()) {
-                    val tag = releaseRepository.fetchLatestTag(UpdateConfig.ksuLkmOwner, UpdateConfig.ksuLkmRepo).getOrThrow()
-                    val asset = when (_state.value.patchState.variant) {
-                        KsuVariant.KSU -> UpdateConfig.ksuModuleAsset
-                        KsuVariant.KSUN -> UpdateConfig.ksunModuleAsset
-                    }
-                    val moduleFile = File(workDir, asset)
-                    val url = "https://github.com/${UpdateConfig.ksuLkmOwner}/${UpdateConfig.ksuLkmRepo}/releases/download/${tag}/${asset}"
-                    downloadRepository.download(url, moduleFile) { }.getOrThrow()
-                    _state.update {
-                        it.copy(
-                            patchState = it.patchState.copy(
-                                moduleName = asset,
-                                modulePath = moduleFile.absolutePath
-                            )
-                        )
-                    }
-                }
-
-                Unit
+                )
             }
         }
+        Unit
     }
 
-    private fun resolveBundledBinary(fileName: String): File {
-        val context = getApplication<Application>()
-        val nativeLibDir = File(context.applicationInfo.nativeLibraryDir)
-        val file = File(nativeLibDir, fileName)
-        if (!file.exists()) {
-            val available = nativeLibDir.listFiles()?.joinToString(",") { it.name } ?: "none"
-            error("Bundled binary not found: ${file.absolutePath}. Available: $available")
-        }
-        return file
-    }
-
-    private fun resolveBundledBinaryForVariant(variant: KsuVariant): File {
-        val fileName = when (variant) {
-            KsuVariant.KSU -> "libksud.so"
-            KsuVariant.KSUN -> "libksud_next.so"
-        }
-        try {
-            return resolveBundledBinary(fileName)
-        } catch (e: Throwable) {
-            if (variant == KsuVariant.KSUN) {
-                try {
-                    return resolveBundledBinary("libksud.so")
-                } catch (_: Throwable) {
-                    throw IllegalStateException("Missing bundled KSUN binary: $fileName and no fallback libksud.so available", e)
-                }
-            }
-            throw e
-        }
-    }
+    private fun resolveBundledBinaryForVariant(variant: KsuVariant): File = engine.resolveBinary(variant)
 
     private fun parseChecksum(content: String, apkName: String): String {
         val line = content
@@ -766,80 +696,31 @@ class MainViewModel(
         }
     }
 
-    private fun shellQuote(arg: String): String = "'" + arg.replace("'", "'\\''") + "'"
-
     private suspend fun executeCommandStreaming(
         command: List<String>,
         workDir: File,
-        initialLog: String? = null,
-        displayCommand: String? = null
+        initialLog: String? = null
     ): Result<String> {
-        return withContext(Dispatchers.IO) {
-            runCatching {
-                val process = try {
-                    ProcessBuilder(command)
-                        .directory(workDir)
-                        .redirectErrorStream(true)
-                        .start()
-                } catch (error: Throwable) {
-                    val execPath = command.firstOrNull().orEmpty()
-                    val execFile = if (execPath.isBlank()) null else File(execPath)
-                    val diagnostics = if (execFile == null) {
-                        "execPath=unknown"
-                    } else {
-                        "execPath=${execFile.absolutePath}, exists=${execFile.exists()}, canExec=${execFile.canExecute()}, workDir=${workDir.absolutePath}"
-                    }
-                    throw IllegalStateException("Failed to start patch process. $diagnostics. If you see error=13 Permission denied, SELinux may block exec in app domain.", error)
-                }
-
-                val reader = process.inputStream.bufferedReader()
-                val sb = StringBuilder()
-                if (!initialLog.isNullOrBlank()) {
-                    appendTrimmed(sb, initialLog)
-                    appendTrimmed(sb, "\n\n")
-                }
-                
-                val prettyCommand = if (!displayCommand.isNullOrBlank()) {
-                    "$ $displayCommand"
-                } else {
-                    val binaryName = File(command.first()).name
-                    val simplifiedBinary = binaryName.replace(Regex("^lib"), "").replace(Regex("\\.so$"), "")
-                    "$ $simplifiedBinary ${command.drop(1).joinToString(" ")}"
-                }
-                appendTrimmed(sb, prettyCommand)
-                appendTrimmed(sb, "\n")
+        val sb = StringBuilder()
+        if (!initialLog.isNullOrBlank()) {
+            appendTrimmed(sb, initialLog)
+            appendTrimmed(sb, "\n\n")
+        }
+        var pendingLines = 0
+        var lastEmitAt = SystemClock.elapsedRealtime()
+        val result = engine.runCommand(command, workDir) { line ->
+            appendTrimmed(sb, line)
+            appendTrimmed(sb, "\n")
+            pendingLines += 1
+            val now = SystemClock.elapsedRealtime()
+            if (pendingLines >= STREAM_LOG_EMIT_LINES || now - lastEmitAt >= STREAM_LOG_EMIT_INTERVAL_MS) {
                 publishStreamingLog(sb.toString(), updatePatch = true)
-
-                var pendingLines = 0
-                var lastEmitAt = SystemClock.elapsedRealtime()
-
-                try {
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        appendTrimmed(sb, line.orEmpty())
-                        appendTrimmed(sb, "\n")
-                        pendingLines += 1
-
-                        val now = SystemClock.elapsedRealtime()
-                        if (pendingLines >= STREAM_LOG_EMIT_LINES || now - lastEmitAt >= STREAM_LOG_EMIT_INTERVAL_MS) {
-                            publishStreamingLog(sb.toString(), updatePatch = true)
-                            pendingLines = 0
-                            lastEmitAt = now
-                        }
-                    }
-                } finally {
-                    reader.close()
-                }
-
-                val exitCode = process.waitFor()
-                val output = sb.toString()
-                publishStreamingLog(output, updatePatch = true)
-                if (exitCode != 0) {
-                    error("Exit $exitCode\n$output")
-                }
-                output
+                pendingLines = 0
+                lastEmitAt = now
             }
         }
+        publishStreamingLog(sb.toString(), updatePatch = true)
+        return result.map { sb.toString() }
     }
 
     private fun appendTrimmed(builder: StringBuilder, text: String) {
@@ -911,180 +792,62 @@ class MainViewModel(
     }
 
     private suspend fun executeOtaFlow(lkmMode: Boolean) {
-        fun appendLog(msg: String) {
-            _state.update { state ->
-                val sb = StringBuilder()
-                val existing = if (lkmMode) state.patchState.lastOutput else state.otaState.log
-                if (!existing.isNullOrBlank()) {
-                    appendTrimmed(sb, existing)
-                    appendTrimmed(sb, "\n")
-                }
-                appendTrimmed(sb, msg)
-                val output = sb.toString()
-
-                if (lkmMode) {
-                    state.copy(patchState = state.patchState.copy(lastOutput = output))
-                } else {
-                    state.copy(otaState = state.otaState.copy(log = output))
-                }
+        val logBuf = StringBuilder()
+        val seed = if (lkmMode) _state.value.patchState.lastOutput else null
+        if (!seed.isNullOrBlank()) {
+            appendTrimmed(logBuf, seed)
+            appendTrimmed(logBuf, "\n")
+        }
+        var pendingLines = 0
+        var lastEmitAt = SystemClock.elapsedRealtime()
+        fun publish() = publishStreamingLog(logBuf.toString(), updatePatch = lkmMode)
+        fun appendLog(line: String) {
+            appendTrimmed(logBuf, line)
+            appendTrimmed(logBuf, "\n")
+            pendingLines += 1
+            val now = SystemClock.elapsedRealtime()
+            if (pendingLines >= STREAM_LOG_EMIT_LINES || now - lastEmitAt >= STREAM_LOG_EMIT_INTERVAL_MS) {
+                publish()
+                pendingLines = 0
+                lastEmitAt = now
             }
         }
+
+        var lastPhase = OtaPhase.IDLE
         fun setPhase(p: OtaPhase) {
-            _state.update { state ->
-                if (lkmMode) {
-                    // In LKM mode, we don't set OTA phase to keep OTA screen idle
-                    state
-                } else {
-                    state.copy(otaState = state.otaState.copy(phase = p))
-                }
+            lastPhase = p
+            if (!lkmMode) _state.update { it.copy(otaState = it.otaState.copy(phase = p)) }
+        }
+
+        _state.update { state ->
+            if (lkmMode) {
+                state.copy(patchState = state.patchState.copy(isPatching = true, status = "Preparing LKM update..."))
+            } else {
+                state.copy(otaState = OtaState(phase = OtaPhase.CHECKING_ROOT, isLkmMode = false))
             }
         }
 
-        try {
-            _state.update { state ->
-                if (lkmMode) {
-                    state.copy(
-                        patchState = state.patchState.copy(
-                            isPatching = true,
-                            status = "Preparing LKM update..."
-                        )
-                    )
-                } else {
-                    state.copy(
-                        otaState = OtaState(phase = OtaPhase.CHECKING_ROOT, isLkmMode = false)
-                    )
-                }
-            }
+        val patch = _state.value.patchState
+        val result = engine.runSlotPatch(
+            lkmMode = lkmMode,
+            variant = patch.variant,
+            kmi = patch.kmi,
+            moduleOverride = patch.modulePath,
+            allowShell = patch.allowShell,
+            enableAdbd = patch.enableAdbd,
+            onLine = ::appendLog,
+            onPhase = ::setPhase,
+            onSlots = { current, next ->
+                _state.update { it.copy(otaState = it.otaState.copy(currentSlot = current, nextSlot = next)) }
+            },
+        )
+        publish()
 
-            if (!RootShell.isRooted()) {
-                val granted = withContext(Dispatchers.IO) {
-                    try {
-                        RootShell.run("true")
-                        true
-                    } catch (_: Throwable) { false }
-                }
-                if (!granted) {
-                    setPhase(OtaPhase.NO_ROOT)
-                    if (lkmMode) {
-                        _state.update { it.copy(patchState = it.patchState.copy(status = "Root access denied")) }
-                        appendLog("Root access denied. Please grant root permission to this app.")
-                    }
-                    return
-                }
-            }
-            appendLog("Root access granted.")
-            val variantName = if (_state.value.patchState.variant == KsuVariant.KSUN) "KernelSU-Next" else "KernelSU"
-            appendLog("Target variant: $variantName")
-            if (lkmMode) {
-                _state.update { it.copy(patchState = it.patchState.copy(status = "Root access granted ($variantName)")) }
-            }
-
-            if (!lkmMode) {
-                setPhase(OtaPhase.CHECKING_OTA_PROP)
-                appendLog("$ getprop ota.other.vbmeta_digest")
-                val otaProp = try {
-                    RootShell.getProp("ota.other.vbmeta_digest")
-                } catch (e: Throwable) {
-                    setPhase(OtaPhase.ERROR)
-                    appendLog("Error reading prop: ${e.message}")
-                    return
-                }
-                if (!otaProp.isNullOrBlank()) {
-                    appendLog(otaProp)
-                }
-                if (otaProp.isNullOrBlank()) {
-                    setPhase(OtaPhase.NO_OTA_PENDING)
-                    appendLog("No OTA update is pending (ota.other.vbmeta_digest is empty).")
-                    appendLog("Apply an OTA update first, then come back here before rebooting.")
-                    return
-                }
-                appendLog("OTA detected. vbmeta_digest = $otaProp")
-            }
-
-            setPhase(OtaPhase.READING_SLOT)
-            appendLog("$ getprop ro.boot.slot_suffix")
-            val currentSlot = try {
-                RootShell.getProp("ro.boot.slot_suffix") ?: error("ro.boot.slot_suffix returned empty")
-            } catch (e: Throwable) {
-                setPhase(OtaPhase.ERROR)
-                if (lkmMode) _state.update { it.copy(patchState = it.patchState.copy(status = "Failed to read slot")) }
-                appendLog("Failed to read slot: ${e.message}")
-                return
-            }
-            appendLog(currentSlot)
-            val nextSlot = if (lkmMode) currentSlot else (if (currentSlot == "_a") "_b" else "_a")
-            _state.update {
-                it.copy(otaState = it.otaState.copy(currentSlot = currentSlot, nextSlot = nextSlot))
-            }
-            val targetSlot = nextSlot  // slot whose boot partition we touch
-            appendLog("Current slot: $currentSlot  →  target slot: $targetSlot")
-
-            setPhase(OtaPhase.PATCHING)
-            val binaryPrepare = ensureBinaries()
-            if (binaryPrepare.isFailure) {
-                setPhase(OtaPhase.ERROR)
-                if (lkmMode) _state.update { it.copy(patchState = it.patchState.copy(status = "Binary prep failed")) }
-                appendLog("Binary preparation failed: ${binaryPrepare.exceptionOrNull()?.message}")
-                return
-            }
-            val workDir = getWorkDir()
-            val ksud = resolveBundledBinaryForVariant(_state.value.patchState.variant)
-            val module = _state.value.patchState.modulePath
-            if (module.isNullOrBlank()) {
-                setPhase(OtaPhase.ERROR)
-                if (lkmMode) _state.update { it.copy(patchState = it.patchState.copy(status = "No module available")) }
-                appendLog("No kernel module found. Please select one manually or ensure your internet connection is active to auto-download.")
-                return
-            }
-
-            // pin the partition from the device so a wrong kmi can't send the patch to boot on an init_boot device (ksud still owns the slot + flashing)
-            val targetPartition = try {
-                val hasInitBoot = RootShell.run("[ -e /dev/block/by-name/init_boot$targetSlot ] && echo yes || echo no").trim()
-                if (hasInitBoot == "yes") "init_boot" else "boot"
-            } catch (_: Throwable) {
-                "boot"
-            }
-            appendLog("Target partition: $targetPartition$targetSlot")
-
-            // no -b so ksud auto-detects the slot; --ota = inactive slot
-            val patch = _state.value.patchState
-            val ksudArgs = buildList {
-                add("boot-patch")
-                add("--flash")
-                if (!lkmMode) add("--ota")
-                add("--partition"); add(targetPartition)
-                add("--kmi"); add(patch.kmi)
-                add("--module"); add(module)
-                if (patch.allowShell) add("--allow-shell")
-                if (patch.enableAdbd) add("--enable-adbd")
-            }
-            val ksudLine = (listOf(ksud.absolutePath) + ksudArgs).joinToString(" ") { shellQuote(it) }
-            val rootCommand = listOf("su", "-c", ksudLine)
-            val displayCommand = "ksud " + ksudArgs.joinToString(" ").replace(module, File(module).name)
-
-            appendLog(
-                if (lkmMode) "Installing to current slot ($currentSlot)..."
-                else "Patching and flashing inactive slot ($targetSlot)..."
-            )
-            val initialLog = if (lkmMode) _state.value.patchState.lastOutput else _state.value.otaState.log
-            val patchResult = executeCommandStreaming(rootCommand, workDir, initialLog, displayCommand)
-            if (patchResult.isFailure) {
-                setPhase(OtaPhase.ERROR)
-                if (lkmMode) _state.update { it.copy(patchState = it.patchState.copy(status = "Install failed")) }
-                appendLog("Install failed: ${patchResult.exceptionOrNull()?.message}")
-                return
-            }
-
-            setPhase(OtaPhase.DONE)
-            
+        if (result.isSuccess) {
+            if (!lkmMode) setPhase(OtaPhase.DONE)
             _state.update {
                 if (lkmMode) {
-                    it.copy(
-                        patchState = it.patchState.copy(
-                            status = "Installed successfully",
-                            rebootRequired = true
-                        )
-                    )
+                    it.copy(patchState = it.patchState.copy(status = "Installed successfully", rebootRequired = true))
                 } else {
                     it.copy(
                         otaState = it.otaState.copy(rebootRequired = true),
@@ -1093,21 +856,25 @@ class MainViewModel(
                 }
             }
             appendLog(
-                if (lkmMode)
-                    "LKM update complete. ✓  Safe to reboot."
-                else
-                    "OTA root patch complete. ✓  Please reboot to boot into the updated slot with root preserved."
+                if (lkmMode) "LKM update complete. ✓  Safe to reboot."
+                else "OTA root patch complete. ✓  Please reboot to boot into the updated slot with root preserved."
             )
-        } catch (e: Throwable) {
-            setPhase(OtaPhase.ERROR)
-            if (lkmMode) _state.update { it.copy(patchState = it.patchState.copy(status = "Unexpected error")) }
-            appendLog("Unexpected error in flow: ${e.message}")
-        } finally {
-            if (lkmMode) {
-                _state.update { 
-                    it.copy(patchState = it.patchState.copy(isPatching = false))
-                }
+            publish()
+        } else {
+            val special = lastPhase == OtaPhase.NO_ROOT || lastPhase == OtaPhase.NO_OTA_PENDING
+            if (!special) {
+                if (!lkmMode) setPhase(OtaPhase.ERROR)
+                appendLog("Install failed: ${result.exceptionOrNull()?.message}")
+                publish()
             }
+            if (lkmMode) {
+                val status = if (lastPhase == OtaPhase.NO_ROOT) "Root access denied" else "Install failed"
+                _state.update { it.copy(patchState = it.patchState.copy(status = status)) }
+            }
+        }
+
+        if (lkmMode) {
+            _state.update { it.copy(patchState = it.patchState.copy(isPatching = false)) }
         }
     }
 
