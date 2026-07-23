@@ -32,23 +32,32 @@ class CliService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundNotification()
 
-        val action = intent?.getStringExtra("action")?.lowercase()
-        val lkmMode = when (action) {
-            "lkm", "install" -> true
-            "ota" -> false
-            else -> {
-                Log.e(TAG, "unknown action: $action (expected ota, lkm or install)")
-                stopSelf()
-                return START_NOT_STICKY
-            }
+        val intent = intent ?: run {
+            Log.e(TAG, "no intent extras")
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        val action = intent.getStringExtra("action")?.lowercase()
+        if (action !in setOf("ota", "lkm", "install", "patch")) {
+            Log.e(TAG, "unknown action: $action (expected ota, lkm, install or patch)")
+            stopSelf(startId)
+            return START_NOT_STICKY
         }
         val variant = when (intent.getStringExtra("variant")?.lowercase()) {
             "ksun", "next", "kernelsu-next" -> KsuVariant.KSUN
             else -> KsuVariant.KSU
         }
         val kmiArg = intent.getStringExtra("kmi")
+        val filePath = intent.getStringExtra("file") ?: intent.getStringExtra("boot") ?: intent.getStringExtra("zip")
+        val outPath = intent.getStringExtra("out")
         val allowShell = intent.getBooleanExtra("allow_shell", false)
         val enableAdbd = intent.getBooleanExtra("enable_adbd", false)
+
+        if (action == "patch" && filePath.isNullOrBlank()) {
+            Log.e(TAG, "patch needs a file extra, e.g. --es file /sdcard/boot.img")
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
 
         val client = OkHttpClient()
         val engine = KsuEngine(application, DownloadRepository(client), GitHubReleaseRepository(client))
@@ -57,23 +66,36 @@ class CliService : Service() {
         scope.launch {
             val kmi = kmiArg ?: settings.kmiFlow.first()
             Log.i(TAG, "action=$action variant=$variant kmi=$kmi allowShell=$allowShell enableAdbd=$enableAdbd")
-            val result = engine.runSlotPatch(
-                lkmMode = lkmMode,
-                variant = variant,
-                kmi = kmi,
-                moduleOverride = null,
-                allowShell = allowShell,
-                enableAdbd = enableAdbd,
-                onLine = { Log.i(TAG, it) },
-                onPhase = { Log.i(TAG, "phase: $it") },
-                onSlots = { current, next -> Log.i(TAG, "slot $current -> $next") },
-            )
+            val result = if (action == "patch") {
+                engine.runFilePatch(
+                    variant = variant,
+                    kmi = kmi,
+                    path = filePath,
+                    outPath = outPath,
+                    moduleOverride = null,
+                    allowShell = allowShell,
+                    enableAdbd = enableAdbd,
+                    onLine = { Log.i(TAG, it) },
+                )
+            } else {
+                engine.runSlotPatch(
+                    lkmMode = action != "ota",
+                    variant = variant,
+                    kmi = kmi,
+                    moduleOverride = null,
+                    allowShell = allowShell,
+                    enableAdbd = enableAdbd,
+                    onLine = { Log.i(TAG, it) },
+                    onPhase = { Log.i(TAG, "phase: $it") },
+                    onSlots = { current, next -> Log.i(TAG, "slot $current -> $next") },
+                )
+            }
             if (result.isSuccess) {
-                Log.i(TAG, "done, reboot to apply")
+                Log.i(TAG, if (action == "patch") "done" else "done, reboot to apply")
             } else {
                 Log.e(TAG, "failed: ${result.exceptionOrNull()?.message}")
             }
-            stopSelf()
+            stopSelf(startId)
         }
         return START_NOT_STICKY
     }

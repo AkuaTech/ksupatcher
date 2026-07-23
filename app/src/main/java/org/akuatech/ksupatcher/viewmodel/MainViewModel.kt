@@ -884,28 +884,7 @@ class MainViewModel(
         }
     }
 
-    private suspend fun hasInitBoot(): Boolean {
-        return withContext(Dispatchers.IO) {
-            try {
-                val getpropProc = ProcessBuilder("getprop").start()
-                val props = getpropProc.inputStream.bufferedReader().use { it.readText() }
-                if (props.contains("init_boot", ignoreCase = true)) { // ro.boot.init_boot_device or ro.boot.init_boot_cmdline
-                    return@withContext true
-                }
-
-                val release = android.system.Os.uname().release
-                val versionParts = release.substringBefore("-").split(".")
-                val major = versionParts.getOrNull(0)?.toIntOrNull() ?: 0
-                val minor = versionParts.getOrNull(1)?.toIntOrNull() ?: 0
-                if (major > 5 || (major == 5 && minor >= 15)) {
-                    return@withContext true // >= 5.15 kernels have init_boot
-                }
-            } catch (e: Throwable) {
-                // Ignore
-            }
-            false
-        }
-    }
+    private suspend fun hasInitBoot(): Boolean = engine.hasInitBoot()
 
     private companion object {
         val httpClient = okhttp3.OkHttpClient()

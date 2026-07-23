@@ -1,12 +1,14 @@
 package org.akuatech.ksupatcher.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.akuatech.ksupatcher.data.UpdateConfig
 import org.akuatech.ksupatcher.network.DownloadRepository
 import org.akuatech.ksupatcher.network.GitHubReleaseRepository
 import org.akuatech.ksupatcher.root.RootShell
+import org.akuatech.ksupatcher.util.RomZipExtractor
 import java.io.File
 import java.util.Locale
 
@@ -230,5 +232,92 @@ class KsuEngine(
         )
         runCommand(rootCommand, workDir(), displayCommand) { onLine(it) }.getOrThrow()
         Unit
+    }
+
+    suspend fun runFilePatch(
+        variant: KsuVariant,
+        kmi: String,
+        path: String?,
+        outPath: String?,
+        moduleOverride: String?,
+        allowShell: Boolean,
+        enableAdbd: Boolean,
+        onLine: (String) -> Unit,
+    ): Result<Unit> = runCatching {
+        val source = path?.takeUnless { it.isBlank() } ?: error("Pass a boot image or rom zip path")
+        val wd = workDir()
+
+        if (!RootShell.isRooted()) error("Root access denied, grant root to the app first")
+
+        // no storage permission on the app so the sniffing goes through root
+        val magic = RootShell.run("head -c 8 ${shellQuote(source)}; echo")
+        val bootArg = when {
+            magic.startsWith("PK") -> {
+                // extractor needs a file it can open itself
+                val staged = File(wd, "cli-input.zip")
+                staged.delete()
+                onLine("Staging $source")
+                RootShell.run("cp ${shellQuote(source)} ${shellQuote(staged.absolutePath)} && chmod 644 ${shellQuote(staged.absolutePath)}")
+                if (!staged.exists() || staged.length() == 0L) {
+                    error("Could not read $source, check the path and that root was granted")
+                }
+                onLine("Extracting boot image from ${File(source).name}")
+                val extracted = RomZipExtractor.extractBootImage(app, Uri.fromFile(staged), wd, hasInitBoot()) { onLine(it) }
+                staged.delete()
+                onLine("Extracted ${extracted.partitionName}.img")
+                extracted.file.absolutePath
+            }
+            magic.startsWith("ANDROID!") -> {
+                val name = File(source).name
+                val looksLikeBoot = name.contains("boot", ignoreCase = true) && !name.contains("init", ignoreCase = true)
+                if (looksLikeBoot && hasInitBoot()) {
+                    error("This device uses init_boot, patch the init_boot image instead of boot.img")
+                }
+                source
+            }
+            else -> error("$source is not a rom zip or a boot image")
+        }
+
+        val ksud = prepareKsud(variant)
+        val module = resolveModule(variant, moduleOverride).getOrElse {
+            onLine("No kernel module found. Please select one manually or ensure your internet connection is active to auto-download.")
+            throw it
+        }.second
+
+        val ksudArgs = buildList {
+            add("boot-patch")
+            add("-b"); add(bootArg)
+            add("--kmi"); add(kmi)
+            add("--module"); add(module)
+            add("-o"); add(wd.absolutePath)
+            if (allowShell) add("--allow-shell")
+            if (enableAdbd) add("--enable-adbd")
+        }
+        val ksudLine = (listOf(ksud.absolutePath) + ksudArgs).joinToString(" ") { shellQuote(it) }
+        val displayCommand = "ksud " + ksudArgs.joinToString(" ").replace(module, File(module).name)
+        onLine("Patching ${File(source).name}")
+        runCommand(listOf("su", "-c", ksudLine), wd, displayCommand) { onLine(it) }.getOrThrow()
+
+        val patched = findPatchedImage(wd) ?: error("Patched image not found after ksud finished")
+        var dest = outPath?.takeIf { it.isNotBlank() } ?: "/sdcard/Download/${patched.name}"
+        if (RootShell.run("[ -d ${shellQuote(dest)} ] && echo yes || echo no") == "yes") {
+            dest = dest.trimEnd('/') + "/" + patched.name
+        }
+        RootShell.run("cp ${shellQuote(patched.absolutePath)} ${shellQuote(dest)} && chmod 644 ${shellQuote(dest)}")
+        onLine("Patched image written to $dest")
+        Unit
+    }
+
+    suspend fun hasInitBoot(): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val props = ProcessBuilder("getprop").start().inputStream.bufferedReader().use { it.readText() }
+            if (props.contains("init_boot", ignoreCase = true)) return@runCatching true
+            val release = android.system.Os.uname().release
+            val parts = release.substringBefore("-").split(".")
+            val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
+            val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            // >= 5.15 kernels have init_boot
+            major > 5 || (major == 5 && minor >= 15)
+        }.getOrDefault(false)
     }
 }
