@@ -1,9 +1,15 @@
 package org.akuatech.ksupatcher.viewmodel
 
 import android.app.Application
+import android.content.ContentValues
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.akuatech.ksupatcher.BuildConfig
 import org.akuatech.ksupatcher.data.UpdateConfig
 import org.akuatech.ksupatcher.network.DownloadRepository
 import org.akuatech.ksupatcher.network.GitHubReleaseRepository
@@ -203,7 +209,7 @@ class KsuEngine(
             throw it
         }.second
 
-        // pick init_boot vs boot from the device, not the kmi
+        // pick init_boot vs boot from the device not the kmi
         val targetPartition = try {
             val hasInitBoot = RootShell.run("[ -e /dev/block/by-name/init_boot$targetSlot ] && echo yes || echo no").trim()
             if (hasInitBoot == "yes") "init_boot" else "boot"
@@ -247,35 +253,31 @@ class KsuEngine(
         val source = path?.takeUnless { it.isBlank() } ?: error("Pass a boot image or rom zip path")
         val wd = workDir()
 
-        if (!RootShell.isRooted()) error("Root access denied, grant root to the app first")
+        val sourceFile = File(source).canonicalFile
+        if (!sourceFile.exists()) error("$source does not exist")
+        val uri = FileProvider.getUriForFile(
+            app,
+            "${BuildConfig.APPLICATION_ID}.fileprovider",
+            sourceFile,
+        )
 
-        // no storage permission on the app so the sniffing goes through root
-        val magic = RootShell.run("head -c 8 ${shellQuote(source)}; echo")
-        val bootArg = when {
-            magic.startsWith("PK") -> {
-                // extractor needs a file it can open itself
-                val staged = File(wd, "cli-input.zip")
-                staged.delete()
-                onLine("Staging $source")
-                RootShell.run("cp ${shellQuote(source)} ${shellQuote(staged.absolutePath)} && chmod 644 ${shellQuote(staged.absolutePath)}")
-                if (!staged.exists() || staged.length() == 0L) {
-                    error("Could not read $source, check the path and that root was granted")
-                }
-                onLine("Extracting boot image from ${File(source).name}")
-                val extracted = RomZipExtractor.extractBootImage(app, Uri.fromFile(staged), wd, hasInitBoot()) { onLine(it) }
-                staged.delete()
-                onLine("Extracted ${extracted.partitionName}.img")
-                extracted.file.absolutePath
+        val bootArg = if (RomZipExtractor.isLikelyZip(app, uri)) {
+            onLine("Extracting boot image from ${sourceFile.name}")
+            val extracted = RomZipExtractor.extractBootImage(app, uri, wd, hasInitBoot()) { onLine(it) }
+            onLine("Extracted ${extracted.partitionName}.img")
+            extracted.file.absolutePath
+        } else {
+            val name = sourceFile.name
+            val looksLikeBoot = name.contains("boot", ignoreCase = true) && !name.contains("init", ignoreCase = true)
+            if (looksLikeBoot && hasInitBoot()) {
+                error("This device uses init_boot, patch the init_boot image instead of boot.img")
             }
-            magic.startsWith("ANDROID!") -> {
-                val name = File(source).name
-                val looksLikeBoot = name.contains("boot", ignoreCase = true) && !name.contains("init", ignoreCase = true)
-                if (looksLikeBoot && hasInitBoot()) {
-                    error("This device uses init_boot, patch the init_boot image instead of boot.img")
-                }
-                source
+            val target = File(wd, name.ifBlank { "boot.img" })
+            app.contentResolver.openInputStream(uri).use { input ->
+                requireNotNull(input) { "Unable to open $source" }
+                target.outputStream().use { output -> input.copyTo(output) }
             }
-            else -> error("$source is not a rom zip or a boot image")
+            target.absolutePath
         }
 
         val ksud = prepareKsud(variant)
@@ -293,19 +295,59 @@ class KsuEngine(
             if (allowShell) add("--allow-shell")
             if (enableAdbd) add("--enable-adbd")
         }
-        val ksudLine = (listOf(ksud.absolutePath) + ksudArgs).joinToString(" ") { shellQuote(it) }
         val displayCommand = "ksud " + ksudArgs.joinToString(" ").replace(module, File(module).name)
-        onLine("Patching ${File(source).name}")
-        runCommand(listOf("su", "-c", ksudLine), wd, displayCommand) { onLine(it) }.getOrThrow()
+        onLine("Patching ${sourceFile.name}")
+        runCommand(listOf(ksud.absolutePath) + ksudArgs, wd, displayCommand) { onLine(it) }.getOrThrow()
 
         val patched = findPatchedImage(wd) ?: error("Patched image not found after ksud finished")
-        var dest = outPath?.takeIf { it.isNotBlank() } ?: "/sdcard/Download/${patched.name}"
-        if (RootShell.run("[ -d ${shellQuote(dest)} ] && echo yes || echo no") == "yes") {
-            dest = dest.trimEnd('/') + "/" + patched.name
+        val dest = if (!outPath.isNullOrBlank()) {
+            val target = File(outPath).let { if (it.isDirectory) File(it, patched.name) else it }
+            target.parentFile?.mkdirs()
+            patched.inputStream().use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            }
+            target.absolutePath
+        } else {
+            exportPatchedImage(patched).getOrThrow()
         }
-        RootShell.run("cp ${shellQuote(patched.absolutePath)} ${shellQuote(dest)} && chmod 644 ${shellQuote(dest)}")
         onLine("Patched image written to $dest")
         Unit
+    }
+
+    fun exportPatchedImage(sourceFile: File): Result<String> = runCatching {
+        val fileName = sourceFile.name
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, "application/octet-stream")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val resolver = app.contentResolver
+            var uri: Uri? = null
+            try {
+                uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: error("Failed to create destination in Downloads")
+                resolver.openOutputStream(uri).use { out ->
+                    requireNotNull(out) { "Failed to open Downloads output stream" }
+                    sourceFile.inputStream().use { input -> input.copyTo(out) }
+                }
+                values.clear()
+                values.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                uri.toString()
+            } catch (error: Throwable) {
+                uri?.let { resolver.delete(it, null, null) }
+                throw error
+            }
+        } else {
+            val downloads = app.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                ?: File(app.filesDir, "exports")
+            if (!downloads.exists()) downloads.mkdirs()
+            val target = File(downloads, fileName)
+            sourceFile.copyTo(target, overwrite = true)
+            target.absolutePath
+        }
     }
 
     suspend fun hasInitBoot(): Boolean = withContext(Dispatchers.IO) {

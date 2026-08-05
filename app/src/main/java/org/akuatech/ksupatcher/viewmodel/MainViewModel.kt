@@ -25,11 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import android.net.Uri
-import android.content.ContentValues
-import android.os.Build
-import android.os.Environment
 import android.os.SystemClock
-import android.provider.MediaStore
 import java.security.MessageDigest
 import java.time.Instant
 
@@ -516,7 +512,7 @@ class MainViewModel(
             val result = executeCommandStreaming(command, workDir, _state.value.patchState.lastOutput)
             val patchedFile = if (result.isSuccess) findPatchedImage(workDir) else null
             val saveResult = if (result.isSuccess && patchedFile != null) {
-                exportPatchedImage(patchedFile)
+                engine.exportPatchedImage(patchedFile)
             } else {
                 Result.failure(IllegalStateException("Patched image not found in work dir"))
             }
@@ -557,53 +553,6 @@ class MainViewModel(
     }
 
     private fun findPatchedImage(workDir: File): File? = engine.findPatchedImage(workDir)
-
-    private fun exportPatchedImage(sourceFile: File): Result<String> = runCatching {
-        val context = getApplication<Application>()
-        val fileName = sourceFile.name
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                put(MediaStore.Downloads.MIME_TYPE, "application/octet-stream")
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                put(MediaStore.Downloads.IS_PENDING, 1)
-            }
-
-            val resolver = context.contentResolver
-            var uri: Uri? = null
-            try {
-                uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                    ?: error("Failed to create destination in Downloads")
-
-                resolver.openOutputStream(uri).use { out ->
-                    requireNotNull(out) { "Failed to open Downloads output stream" }
-                    sourceFile.inputStream().use { input ->
-                        input.copyTo(out)
-                    }
-                }
-
-                values.clear()
-                values.put(MediaStore.Downloads.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-                uri.toString()
-            } catch (error: Throwable) {
-                uri?.let { resolver.delete(it, null, null) }
-                throw error
-            }
-        } else {
-            val downloads = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-                ?: File(context.filesDir, "exports")
-            if (!downloads.exists()) {
-                downloads.mkdirs()
-            }
-            val target = File(downloads, fileName)
-            runCatching { sourceFile.copyTo(target, overwrite = true) }
-                .onFailure { target.delete() }
-                .getOrThrow()
-            target.absolutePath
-        }
-    }
 
     private fun getAppUpdateDir(): File {
         val dir = File(getApplication<Application>().cacheDir, "updates")
