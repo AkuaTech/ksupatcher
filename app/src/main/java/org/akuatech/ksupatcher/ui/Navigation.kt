@@ -54,7 +54,7 @@ fun KsuPatcherNavGraph(
     val currentDestination = navBackStackEntry?.destination
 
     if (state.showDisclaimer) {
-        DisclaimerDialog(onAccept = viewModel::acceptDisclaimer)
+        DisclaimerDialog(onDismiss = viewModel::dismissDisclaimer)
     }
 
     if (state.showInstallPermissionRationale) {

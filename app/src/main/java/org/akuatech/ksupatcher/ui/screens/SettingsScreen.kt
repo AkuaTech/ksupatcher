@@ -20,6 +20,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.draw.rotate
 import androidx.compose.runtime.saveable.rememberSaveable
 import org.akuatech.ksupatcher.ui.components.RootStatusCard
+import org.akuatech.ksupatcher.ui.components.AllFilesAccessButton
+import org.akuatech.ksupatcher.ui.components.allFilesAccessGranted
 import org.akuatech.ksupatcher.viewmodel.UiState
 import org.akuatech.ksupatcher.util.DateUtils
 import androidx.compose.ui.platform.ClipEntry
@@ -28,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.ui.res.painterResource
@@ -35,6 +38,7 @@ import org.akuatech.ksupatcher.R
 import org.akuatech.ksupatcher.BuildConfig
 import kotlinx.coroutines.launch
 import java.time.Year
+import androidx.lifecycle.compose.LifecycleResumeEffect
 
 @Composable
 fun SettingsScreen(
@@ -78,6 +82,8 @@ fun SettingsScreen(
             themeMode = state.themeMode,
             onUpdateTheme = onUpdateTheme
         )
+
+        AdvancedCard()
 
         Card(
             shape = RoundedCornerShape(24.dp),
@@ -514,6 +520,80 @@ fun AppearanceCard(
         }
     }
 }
+
+@Composable
+fun AdvancedCard() {
+    val context = LocalContext.current
+    var granted by remember { mutableStateOf(allFilesAccessGranted(context)) }
+    LifecycleResumeEffect(Unit) {
+        granted = allFilesAccessGranted(context)
+        onPauseOrDispose { }
+    }
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Advanced",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "All files access",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Only needed for ADB boot patching. In-app picker skips this.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                if (granted) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Granted",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                } else {
+                    AllFilesAccessButton()
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun AboutCard(buildHash: String) {
     val uriHandler = LocalUriHandler.current

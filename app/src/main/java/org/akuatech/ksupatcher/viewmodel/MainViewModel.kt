@@ -140,10 +140,11 @@ class MainViewModel(
         refreshVersion(isAutoCheck = true)
     }
 
-    fun acceptDisclaimer() {
-        viewModelScope.launch {
-            settingsRepository.setDisclaimerAccepted()
+    fun dismissDisclaimer(dontShowAgain: Boolean) {
+        if (dontShowAgain) {
+            viewModelScope.launch { settingsRepository.setDisclaimerAccepted() }
         }
+        _state.update { it.copy(showDisclaimer = false) }
     }
 
     fun dismissInstallPermissionRationale() {
