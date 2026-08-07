@@ -297,7 +297,7 @@ fun SettingsScreen(
 
         AboutCard(buildHash = state.appUpdateInfo?.currentBuildHash ?: BuildConfig.VERSION_NAME)
         
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(120.dp))
     }
 }
 

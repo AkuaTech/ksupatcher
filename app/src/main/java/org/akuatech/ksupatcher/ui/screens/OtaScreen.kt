@@ -318,6 +318,7 @@ fun OtaScreen(
                 }
             }
         }
+        Spacer(modifier = Modifier.height(120.dp))
     }
 }
 
