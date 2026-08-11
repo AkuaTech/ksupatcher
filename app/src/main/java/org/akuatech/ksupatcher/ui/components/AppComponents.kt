@@ -99,7 +99,7 @@ fun AppStatusCard(
     iconColor: Color = MaterialTheme.colorScheme.primary,
     titleColor: Color = MaterialTheme.colorScheme.onSurface,
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
     onAction: (() -> Unit)? = null,
     actionLabel: String? = null,
     modifier: Modifier = Modifier

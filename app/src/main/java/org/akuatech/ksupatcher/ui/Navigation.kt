@@ -2,14 +2,12 @@ package org.akuatech.ksupatcher.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,21 +23,29 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -55,10 +61,12 @@ import org.akuatech.ksupatcher.ui.screens.PatchScreen
 import org.akuatech.ksupatcher.ui.screens.SettingsScreen
 import org.akuatech.ksupatcher.viewmodel.MainViewModel
 
+@Immutable
 private data class NavItem(
     val route: String,
     val label: String,
-    val icon: ImageVector
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector
 )
 
 @Composable
@@ -69,9 +77,9 @@ fun KsuPatcherNavGraph(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val navItems = remember {
         listOf(
-            NavItem("install", "Install", Icons.Filled.Build),
-            NavItem("ota", "OTA", Icons.Filled.SystemUpdate),
-            NavItem("settings", "Settings", Icons.Filled.Settings)
+            NavItem("install", "Install", Icons.Filled.Build, Icons.Outlined.Build),
+            NavItem("ota", "OTA", Icons.Filled.SystemUpdate, Icons.Outlined.SystemUpdate),
+            NavItem("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
         )
     }
 
@@ -107,10 +115,10 @@ fun KsuPatcherNavGraph(
                 navController = navController,
                 startDestination = "install",
                 modifier = Modifier.fillMaxSize(),
-                enterTransition = { fadeIn(tween(220)) + scaleIn(initialScale = 0.96f, animationSpec = tween(220)) },
-                exitTransition = { fadeOut(tween(180)) + scaleOut(targetScale = 0.96f, animationSpec = tween(180)) },
-                popEnterTransition = { fadeIn(tween(220)) + scaleIn(initialScale = 0.96f, animationSpec = tween(220)) },
-                popExitTransition = { fadeOut(tween(180)) + scaleOut(targetScale = 0.96f, animationSpec = tween(180)) }
+                enterTransition = { fadeIn(tween(300, easing = FastOutSlowInEasing)) },
+                exitTransition = { fadeOut(tween(300, easing = FastOutSlowInEasing)) },
+                popEnterTransition = { fadeIn(tween(300, easing = FastOutSlowInEasing)) },
+                popExitTransition = { fadeOut(tween(300, easing = FastOutSlowInEasing)) }
             ) {
                 composable("install") {
                     PatchScreen(
@@ -203,18 +211,18 @@ private fun FloatingNavBar(
             .wrapContentWidth()
     ) {
         Row(
-            modifier = Modifier
-                .padding(8.dp)
-                .animateContentSize(spring(stiffness = Spring.StiffnessHigh)),
+            modifier = Modifier.padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEachIndexed { index, item ->
-                BubbleItem(
-                    item = item,
-                    selected = index == selectedIndex,
-                    onClick = { onSelect(index) }
-                )
+                key(item.route) {
+                    BubbleItem(
+                        item = item,
+                        selected = index == selectedIndex,
+                        onClick = { onSelect(index) }
+                    )
+                }
             }
         }
     }
@@ -231,28 +239,45 @@ private fun BubbleItem(
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val haptic = LocalHapticFeedback.current
+    val iconAlpha by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = tween(250, easing = FastOutSlowInEasing),
+        label = "icon"
+    )
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(
                 if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
             )
-            .clickable(onClick = onClick)
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            }
             .padding(horizontal = 18.dp, vertical = 14.dp)
-            .animateContentSize(spring(stiffness = Spring.StiffnessHigh)),
+            .animateContentSize(animationSpec = tween(250, easing = FastOutSlowInEasing)),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Icon(
-            imageVector = item.icon,
-            contentDescription = null,
-            tint = tint,
-            modifier = Modifier.size(26.dp)
-        )
+        Box(modifier = Modifier.size(26.dp)) {
+            Icon(
+                imageVector = item.unselectedIcon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.graphicsLayer { alpha = 1f - iconAlpha }
+            )
+            Icon(
+                imageVector = item.selectedIcon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.graphicsLayer { alpha = iconAlpha }
+            )
+        }
         AnimatedVisibility(
             visible = selected,
-            enter = fadeIn(spring(stiffness = Spring.StiffnessHigh)) + expandHorizontally(),
-            exit = fadeOut(spring(stiffness = Spring.StiffnessHigh)) + shrinkHorizontally()
+            enter = fadeIn(tween(100, easing = FastOutSlowInEasing)) + expandHorizontally(animationSpec = tween(100, easing = FastOutSlowInEasing)),
+            exit = fadeOut(tween(100, easing = FastOutSlowInEasing)) + shrinkHorizontally(animationSpec = tween(100, easing = FastOutSlowInEasing))
         ) {
             Text(
                 text = item.label,

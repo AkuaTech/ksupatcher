@@ -133,7 +133,9 @@ class MainViewModel(
         }
         viewModelScope.launch {
             settingsRepository.disclaimerAcceptedFlow.collect { accepted ->
-                _state.update { it.copy(showDisclaimer = !accepted) }
+                if (accepted) {
+                    _state.update { it.copy(showDisclaimer = false) }
+                }
             }
         }
         refreshRootStatus()
