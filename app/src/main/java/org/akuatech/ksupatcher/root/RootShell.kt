@@ -16,7 +16,7 @@ object RootShell {
     private var suStdout: BufferedReader? = null
 
     @Synchronized
-    private fun runRootBlock(input: String): Triple<Boolean, String, String> {
+    private fun runRootBlock(input: String, onLine: ((String) -> Unit)? = null): Triple<Boolean, String, String> {
         if (suProcess == null) {
             try {
                 suProcess = Runtime.getRuntime().exec("su")
@@ -57,6 +57,7 @@ object RootShell {
                     break
                 }
                 outBuf.appendLine(line)
+                onLine?.invoke(line)
             }
 
             val output = outBuf.toString().trimEnd()
@@ -92,6 +93,14 @@ object RootShell {
     suspend fun run(vararg cmds: String): String = withContext(Dispatchers.IO) {
         val cmdStr = cmds.joinToString("\n")
         val (success, out, err) = runRootBlock(cmdStr)
+        if (!success) {
+            error("Shell execution failed. Error: $err")
+        }
+        out
+    }
+
+    suspend fun runStreaming(cmd: String, onLine: (String) -> Unit): String = withContext(Dispatchers.IO) {
+        val (success, out, err) = runRootBlock(cmd, onLine)
         if (!success) {
             error("Shell execution failed. Error: $err")
         }

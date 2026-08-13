@@ -54,6 +54,16 @@ data class OtaState(
     val isLkmMode: Boolean = false         // if true den update lkm on current slot instead of ota
 )
 
+data class FlashState(
+    val isFlashing: Boolean = false,
+    val status: String? = null,
+    val lastOutput: String? = null,
+    val rawLog: String? = null,
+    val rebootRequired: Boolean = false,
+    val zipName: String? = null,
+    val zipPath: String? = null
+)
+
 data class UiState(
     val isCheckingVersion: Boolean = false,
     val isUpdatingApp: Boolean = false,
@@ -65,6 +75,7 @@ data class UiState(
     val lastVersionCheck: String? = null,
     val patchState: PatchState = PatchState(),
     val otaState: OtaState = OtaState(),
+    val flashState: FlashState = FlashState(),
     val rootStatus: RootStatus = RootStatus.UNKNOWN,
     val isCheckingRoot: Boolean = false,
     val themeMode: String = "auto",
@@ -305,6 +316,25 @@ class MainViewModel(
 
     fun toggleEnableAdbd(enabled: Boolean) {
         _state.update { it.copy(patchState = it.patchState.copy(enableAdbd = enabled)) }
+    }
+
+    fun importFlashZip(uri: Uri) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            val displayName = withContext(Dispatchers.IO) {
+                DocumentFile.fromSingleUri(context, uri)?.name
+            } ?: "anykernel.zip"
+            val result = copyUriToWorkDir(uri, "anykernel.zip")
+            _state.update {
+                it.copy(
+                    flashState = it.flashState.copy(
+                        zipName = result.getOrNull()?.second ?: displayName,
+                        zipPath = result.getOrNull()?.first,
+                        status = result.exceptionOrNull()?.message
+                    )
+                )
+            }
+        }
     }
 
     fun importBootImage(uri: Uri) {
@@ -683,9 +713,11 @@ class MainViewModel(
         }
     }
 
+    private fun trimLog(log: String) = if (log.length > MAX_LOG_CHARS) log.takeLast(MAX_LOG_CHARS) else log
+
     private fun publishStreamingLog(log: String, updatePatch: Boolean) {
         _state.update { state ->
-            val trimmed = if (log.length > MAX_LOG_CHARS) log.takeLast(MAX_LOG_CHARS) else log
+            val trimmed = trimLog(log)
             val patch = if (updatePatch) state.patchState.copy(lastOutput = trimmed) else state.patchState
             val ota = if (state.otaState.phase != OtaPhase.IDLE && !state.otaState.isLkmMode) {
                 state.otaState.copy(log = trimmed)
@@ -695,6 +727,38 @@ class MainViewModel(
             state.copy(patchState = patch, otaState = ota)
         }
     }
+
+    private fun publishFlashLog(log: String) {
+        _state.update { state -> state.copy(flashState = state.flashState.copy(lastOutput = trimLog(log))) }
+    }
+
+    private fun publishFlashRawLog(log: String) {
+        _state.update { state -> state.copy(flashState = state.flashState.copy(rawLog = trimLog(log))) }
+    }
+
+    private fun logStream(publish: (String) -> Unit, seed: String? = null): Pair<StringBuilder, (String) -> Unit> {
+        val buf = StringBuilder()
+        if (!seed.isNullOrBlank()) {
+            appendTrimmed(buf, seed)
+            appendTrimmed(buf, "\n")
+        }
+        var pendingLines = 0
+        var lastEmitAt = SystemClock.elapsedRealtime()
+        fun append(line: String) {
+            appendTrimmed(buf, line)
+            appendTrimmed(buf, "\n")
+            pendingLines += 1
+            val now = SystemClock.elapsedRealtime()
+            if (pendingLines >= STREAM_LOG_EMIT_LINES || now - lastEmitAt >= STREAM_LOG_EMIT_INTERVAL_MS) {
+                publish(buf.toString())
+                pendingLines = 0
+                lastEmitAt = now
+            }
+        }
+        return buf to ::append
+    }
+
+    private fun flashLogStream(seed: String? = null) = logStream(::publishFlashLog, seed)
 
     private suspend fun copyUriToWorkDir(uri: Uri, defaultName: String): Result<Pair<String, String>> {
         return withContext(Dispatchers.IO) {
@@ -735,6 +799,20 @@ class MainViewModel(
         }
     }
 
+    fun resetFlash() {
+        _state.update {
+            it.copy(
+                flashState = it.flashState.copy(
+                    lastOutput = null,
+                    rawLog = null,
+                    status = null,
+                    isFlashing = false,
+                    rebootRequired = false
+                )
+            )
+        }
+    }
+
     fun runOtaPatch() {
         viewModelScope.launch { executeOtaFlow(lkmMode = false) }
     }
@@ -742,6 +820,48 @@ class MainViewModel(
     fun runLkmUpdate() {
         viewModelScope.launch { executeOtaFlow(lkmMode = true) }
     }
+
+    fun runFlashKernel() {
+        val img = _state.value.flashState.zipPath
+        if (img.isNullOrBlank()) {
+            _state.update { it.copy(flashState = it.flashState.copy(status = "Select a zip to flash")) }
+            return
+        }
+        viewModelScope.launch {
+            val (logBuf, appendLog) = flashLogStream()
+            val (rawBuf, appendRaw) = logStream(::publishFlashRawLog)
+            _state.update { it.copy(flashState = it.flashState.copy(isFlashing = true, status = "Flashing...", lastOutput = null, rawLog = null)) }
+
+            var lastPhase = OtaPhase.IDLE
+            val result = engine.runFlashKernel(
+                imagePath = img,
+                onLine = { line ->
+                    appendRaw(line)
+                    appendLog(line)
+                },
+                onShell = { line ->
+                    appendRaw(line)
+                    uiPrintText(line)?.let(appendLog)
+                },
+                onPhase = { lastPhase = it },
+            )
+            publishFlashLog(logBuf.toString())
+            publishFlashRawLog(rawBuf.toString())
+
+            if (result.isSuccess) {
+                _state.update { it.copy(flashState = it.flashState.copy(status = "Flashed successfully", rebootRequired = true, isFlashing = false)) }
+                appendLog("Flash complete. Reboot to apply.")
+                publishFlashLog(logBuf.toString())
+            } else {
+                val status = if (lastPhase == OtaPhase.NO_ROOT) "Root access denied" else "Flash failed"
+                _state.update { it.copy(flashState = it.flashState.copy(status = status, isFlashing = false)) }
+                appendLog("Flash failed: ${result.exceptionOrNull()?.message}")
+                publishFlashLog(logBuf.toString())
+            }
+        }
+    }
+
+
 
     private suspend fun executeOtaFlow(lkmMode: Boolean) {
         val logBuf = StringBuilder()
@@ -844,4 +964,12 @@ class MainViewModel(
         const val STREAM_LOG_EMIT_LINES = 8
         const val STREAM_LOG_EMIT_INTERVAL_MS = 200L
     }
+}
+
+private fun uiPrintText(line: String): String? {
+    if (line.startsWith("ui_print ")) {
+        val msg = line.removePrefix("ui_print ").trim()
+        return msg.ifEmpty { "" }
+    }
+    return null
 }

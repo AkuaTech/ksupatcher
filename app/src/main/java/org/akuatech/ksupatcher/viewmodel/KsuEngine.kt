@@ -64,7 +64,7 @@ class KsuEngine(
         val ksud = resolveBinary(variant)
         ksud.setExecutable(true, false)
         if (!ksud.canExecute()) {
-            error("Bundled binary is not executable. ksud=${ksud.absolutePath} canExec=${ksud.canExecute()}, ")
+            error("Bundled binary is not executable: ${ksud.absolutePath}")
         }
         return ksud
     }
@@ -361,5 +361,71 @@ class KsuEngine(
             // >= 5.15 kernels have init_boot
             major > 5 || (major == 5 && minor >= 15)
         }.getOrDefault(false)
+    }
+
+    suspend fun runFlashKernel(
+        imagePath: String,
+        onLine: (String) -> Unit,
+        onShell: (String) -> Unit = onLine,
+        onPhase: (OtaPhase) -> Unit,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            onPhase(OtaPhase.CHECKING_ROOT)
+            if (!RootShell.isRooted()) {
+                try { RootShell.run("true") } catch (_: Throwable) {
+                    onPhase(OtaPhase.NO_ROOT)
+                    onLine("Root access denied.")
+                    error("root access denied")
+                }
+            }
+            onLine("Root access granted.")
+
+            onPhase(OtaPhase.READING_SLOT)
+            val currentSlot = RootShell.getProp("ro.boot.slot_suffix") ?: ""
+            onLine("Current slot: $currentSlot")
+
+            val src = File(imagePath).canonicalFile
+            if (!src.exists()) error("${src.absolutePath} does not exist")
+
+            onPhase(OtaPhase.PATCHING)
+
+            val bb = resolveBundledBinary("libbusybox.so")
+            bb.setExecutable(true, false)
+            val bbPath = bb.absolutePath
+
+            val ts = System.currentTimeMillis()
+            val tmpDir = File(app.cacheDir, "ak3_$ts")
+            tmpDir.mkdirs()
+            val zipCopy = File(tmpDir, "anykernel.zip")
+            src.inputStream().use { it.copyTo(zipCopy.outputStream()) }
+
+            val hasInstaller = runCatching {
+                java.util.zip.ZipFile(zipCopy).use { z ->
+                    z.getEntry("META-INF/com/google/android/update-binary") != null
+                }
+            }.getOrDefault(false)
+
+            if (!hasInstaller) {
+                tmpDir.deleteRecursively()
+                error("Invalid AnyKernel3 zip: update-binary not found")
+            }
+
+            val cmd = buildString {
+                append("$bbPath unzip -p -o '").append(zipCopy.absolutePath)
+                append("' 'META-INF/com/google/android/update-binary' > '")
+                append(tmpDir.absolutePath).append("/update-binary' 2>/dev/null\n")
+                append("$bbPath chmod 755 '").append(tmpDir.absolutePath).append("/update-binary'\n")
+                append("cd '").append(tmpDir.absolutePath).append("'\n")
+                append("AKHOME='").append(tmpDir.absolutePath).append("/tmp' ")
+                append("$bbPath ash ./update-binary 3 1 '").append(zipCopy.absolutePath).append("'")
+            }
+            onLine("$ busybox ash update-binary ...")
+            RootShell.runStreaming(cmd, onShell)
+
+            runCatching { RootShell.run("rm -rf '${tmpDir.absolutePath}'") }
+
+            onPhase(OtaPhase.DONE)
+            Unit
+        }
     }
 }
