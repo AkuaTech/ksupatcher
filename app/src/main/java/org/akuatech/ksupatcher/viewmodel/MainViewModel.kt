@@ -861,7 +861,30 @@ class MainViewModel(
         }
     }
 
+    fun backupBoot() {
+        viewModelScope.launch {
+            val (logBuf, appendLog) = flashLogStream()
+            _state.update { it.copy(flashState = it.flashState.copy(isFlashing = true, status = "Backing up...", lastOutput = null)) }
 
+            var lastPhase = OtaPhase.IDLE
+            val result = engine.backupBoot(
+                onLine = appendLog,
+                onPhase = { lastPhase = it },
+            )
+            publishFlashLog(logBuf.toString())
+
+            if (result.isSuccess) {
+                _state.update { it.copy(flashState = it.flashState.copy(status = "Backup saved to Downloads", isFlashing = false)) }
+                appendLog("Backup complete. Saved to Downloads.")
+                publishFlashLog(logBuf.toString())
+            } else {
+                val status = if (lastPhase == OtaPhase.NO_ROOT) "Root access denied" else "Backup failed"
+                _state.update { it.copy(flashState = it.flashState.copy(status = status, isFlashing = false)) }
+                appendLog("Backup failed: ${result.exceptionOrNull()?.message}")
+                publishFlashLog(logBuf.toString())
+            }
+        }
+    }
 
     private suspend fun executeOtaFlow(lkmMode: Boolean) {
         val logBuf = StringBuilder()

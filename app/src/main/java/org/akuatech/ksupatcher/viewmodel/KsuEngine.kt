@@ -428,4 +428,50 @@ class KsuEngine(
             Unit
         }
     }
+
+    suspend fun backupBoot(
+        onLine: (String) -> Unit,
+        onPhase: (OtaPhase) -> Unit,
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            onPhase(OtaPhase.CHECKING_ROOT)
+            if (!RootShell.isRooted()) {
+                try { RootShell.run("true") } catch (_: Throwable) {
+                    onPhase(OtaPhase.NO_ROOT)
+                    onLine("Root access denied.")
+                    error("root access denied")
+                }
+            }
+            onLine("Root access granted.")
+
+            onPhase(OtaPhase.READING_SLOT)
+            val currentSlot = RootShell.getProp("ro.boot.slot_suffix") ?: ""
+            onLine("Current slot: $currentSlot")
+
+            val targetPartition = try {
+                val hasInitBoot = RootShell.run("[ -e /dev/block/by-name/init_boot$currentSlot ] && echo yes || echo no").trim()
+                if (hasInitBoot == "yes") "init_boot" else "boot"
+            } catch (_: Throwable) { "boot" }
+
+            val srcDev = "/dev/block/by-name/$targetPartition$currentSlot"
+            onLine("Source: $srcDev")
+
+            val isBlock = RootShell.run("[ -b '$srcDev' ] && echo yes || echo no").trim()
+            if (isBlock != "yes") error("$srcDev is not a block device")
+
+            onPhase(OtaPhase.PATCHING)
+            onLine("Backing up $targetPartition to backup file...")
+
+            val out = RootShell.run("dd if='$srcDev' of='${File(app.cacheDir, "boot_backup_tmp.img").absolutePath}' bs=1M")
+            onLine(out)
+
+            val tmpFile = File(app.cacheDir, "boot_backup_tmp.img")
+            val exportResult = exportPatchedImage(tmpFile).getOrThrow()
+            tmpFile.delete()
+
+            onLine("Backup saved to $exportResult")
+            onPhase(OtaPhase.DONE)
+            exportResult
+        }
+    }
 }
