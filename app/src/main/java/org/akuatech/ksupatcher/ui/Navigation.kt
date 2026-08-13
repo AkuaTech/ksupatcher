@@ -6,9 +6,11 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,9 +23,11 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.Icon
@@ -36,7 +40,9 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +62,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import org.akuatech.ksupatcher.ui.components.DisclaimerDialog
 import org.akuatech.ksupatcher.ui.components.InstallPermissionRationaleDialog
+import org.akuatech.ksupatcher.ui.screens.FlashScreen
 import org.akuatech.ksupatcher.ui.screens.OtaScreen
 import org.akuatech.ksupatcher.ui.screens.PatchScreen
 import org.akuatech.ksupatcher.ui.screens.SettingsScreen
@@ -79,6 +86,7 @@ fun KsuPatcherNavGraph(
         listOf(
             NavItem("install", "Install", Icons.Filled.Build, Icons.Outlined.Build),
             NavItem("ota", "OTA", Icons.Filled.SystemUpdate, Icons.Outlined.SystemUpdate),
+            NavItem("flash", "Flash", Icons.Filled.FlashOn, Icons.Outlined.FlashOn),
             NavItem("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
         )
     }
@@ -93,6 +101,8 @@ fun KsuPatcherNavGraph(
                 .coerceAtLeast(0)
         }
     }
+
+    var flashExpanded by remember { mutableStateOf(false) }
 
     if (state.showDisclaimer) {
         DisclaimerDialog(onDismiss = viewModel::dismissDisclaimer)
@@ -145,6 +155,18 @@ fun KsuPatcherNavGraph(
                         }
                     )
                 }
+                composable("flash") {
+                    FlashScreen(
+                        state = state,
+                        expanded = flashExpanded,
+                        onExpandedChange = { flashExpanded = it },
+                        onPickZip = { viewModel.importFlashZip(it) },
+                        onRunFlash = { viewModel.runFlashKernel() },
+                        onBackupBoot = { viewModel.backupBoot() },
+                        onReset = { viewModel.resetFlash() },
+                        onReboot = { viewModel.rebootNow() }
+                    )
+                }
                 composable("ota") {
                     OtaScreen(
                         otaState = state.otaState,
@@ -175,22 +197,28 @@ fun KsuPatcherNavGraph(
                 }
             }
 
-            FloatingNavBar(
-                items = navItems,
-                selectedIndex = selectedIndex,
-                onSelect = { index ->
-                    navController.navigate(navItems[index].route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
+            AnimatedVisibility(
+                visible = !flashExpanded,
+                enter = fadeIn(tween(300, easing = FastOutSlowInEasing)) + expandVertically(),
+                exit = fadeOut(tween(200, easing = FastOutSlowInEasing)) + shrinkVertically(),
                 modifier = Modifier
                     .padding(horizontal = 24.dp, vertical = 16.dp)
                     .align(Alignment.BottomCenter)
-            )
+            ) {
+                FloatingNavBar(
+                    items = navItems,
+                    selectedIndex = selectedIndex,
+                    onSelect = { index ->
+                        navController.navigate(navItems[index].route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
         }
     }
 }
@@ -282,7 +310,8 @@ private fun BubbleItem(
             Text(
                 text = item.label,
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                color = tint
+                color = tint,
+                maxLines = 1
             )
         }
     }

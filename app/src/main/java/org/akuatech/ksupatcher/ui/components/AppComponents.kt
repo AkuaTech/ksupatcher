@@ -420,7 +420,8 @@ fun RootRequiredBanner(modifier: Modifier = Modifier) {
 @Composable
 fun TerminalView(
     log: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    fillHeight: Boolean = false
 ) {
     if (log.isBlank()) return
 
@@ -443,7 +444,7 @@ fun TerminalView(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(max = 400.dp)
+            .then(if (fillHeight) Modifier.fillMaxHeight() else Modifier.heightIn(max = 400.dp))
             .clip(RoundedCornerShape(12.dp))
             .background(Color(0xFF090A0C))
             .padding(12.dp)
