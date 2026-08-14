@@ -425,6 +425,7 @@ fun TerminalView(
 ) {
     if (log.isBlank()) return
 
+    val scrollState = rememberScrollState()
     val annotatedLog = buildAnnotatedString {
         val lines = log.split('\n')
         lines.forEachIndexed { index, line ->
@@ -441,6 +442,10 @@ fun TerminalView(
         }
     }
 
+    LaunchedEffect(log) {
+        scrollState.animateScrollTo(scrollState.maxValue)
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -448,8 +453,7 @@ fun TerminalView(
             .clip(RoundedCornerShape(12.dp))
             .background(Color(0xFF090A0C))
             .padding(12.dp)
-            .verticalScroll(rememberScrollState())
-            .horizontalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
     ) {
         SelectionContainer {
             Text(
