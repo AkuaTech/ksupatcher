@@ -280,7 +280,7 @@ fun OtaScreen(
                     .fillMaxWidth()
                     .padding(bottom = 24.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -313,7 +313,7 @@ fun OtaScreen(
                             Text("Save logs")
                         }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     TerminalView(log = otaState.log.trimStart('\n'))
                 }
             }

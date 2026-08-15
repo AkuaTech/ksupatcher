@@ -377,7 +377,7 @@ fun PatchScreen(
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(16.dp)
+                        .padding(8.dp)
                         .animateContentSize()
                 ) {
                     Row(
@@ -414,7 +414,7 @@ fun PatchScreen(
                         }
                     }
                     
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     
                     TerminalView(log = patch.lastOutput ?: "")
                 }
@@ -592,7 +592,14 @@ fun AdvancedOptionsSection(
                         Spacer(modifier = Modifier.width(12.dp))
                         Switch(
                             checked = allowShell,
-                            onCheckedChange = onToggleAllowShell
+                            onCheckedChange = onToggleAllowShell,
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (allowShell) Icons.Filled.Check else Icons.Filled.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
                         )
                     }
 
@@ -621,7 +628,14 @@ fun AdvancedOptionsSection(
                         Spacer(modifier = Modifier.width(12.dp))
                         Switch(
                             checked = enableAdbd,
-                            onCheckedChange = onToggleEnableAdbd
+                            onCheckedChange = onToggleEnableAdbd,
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (enableAdbd) Icons.Filled.Check else Icons.Filled.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                                )
+                            }
                         )
                     }
                 }
