@@ -7,10 +7,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.akuatech.ksupatcher.ui.KsuPatcherNavGraph
 import org.akuatech.ksupatcher.ui.theme.KsuPatcherTheme
 import org.akuatech.ksupatcher.viewmodel.MainViewModel
+import org.akuatech.ksupatcher.viewmodel.RootStatus
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,6 +28,12 @@ class MainActivity : ComponentActivity() {
                 else -> systemDark
             }
             KsuPatcherTheme(darkTheme = darkTheme) {
+                LifecycleResumeEffect(Unit) {
+                    if (state.rootStatus != RootStatus.GRANTED) {
+                        mainViewModel.refreshRootStatus()
+                    }
+                    onPauseOrDispose { }
+                }
                 KsuPatcherNavGraph(viewModel = mainViewModel)
             }
         }

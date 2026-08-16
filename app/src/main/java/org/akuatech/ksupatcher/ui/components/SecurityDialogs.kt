@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -44,6 +46,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -131,8 +134,14 @@ private fun CommandRow(command: String) {
 fun DisclaimerDialog(onDismiss: (dontShowAgain: Boolean) -> Unit) {
     val context = LocalContext.current
     var dontShow by remember { mutableStateOf(false) }
+    var fileAccessGranted by remember { mutableStateOf(allFilesAccessGranted(context)) }
 
-    val needsFileAccess = !allFilesAccessGranted(context)
+    LifecycleResumeEffect(Unit) {
+        fileAccessGranted = allFilesAccessGranted(context)
+        onPauseOrDispose { }
+    }
+
+    val needsFileAccess = !fileAccessGranted
 
     val tone = MaterialTheme.colorScheme.surface
     val isDark = (0.2126 * tone.red + 0.7152 * tone.green + 0.0722 * tone.blue) < 0.5f
@@ -269,12 +278,20 @@ fun DisclaimerDialog(onDismiss: (dontShowAgain: Boolean) -> Unit) {
                         if (needsFileAccess) {
                             AllFilesAccessButton()
                         } else {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            OutlinedButton(
+                                onClick = {},
+                                enabled = false,
+                                shape = RoundedCornerShape(20.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Granted", fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
                 }
