@@ -2,6 +2,7 @@ package org.akuatech.ksupatcher.ui.screens
 
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -58,12 +59,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.akuatech.ksupatcher.ui.components.RootRequiredBanner
 import org.akuatech.ksupatcher.ui.components.TerminalView
 import org.akuatech.ksupatcher.util.defaultLogFileName
@@ -107,6 +106,10 @@ fun FlashScreen(
 
     LaunchedEffect(flash.isFlashing) {
         if (flash.isFlashing) onExpandedChange(true)
+    }
+
+    BackHandler(enabled = expanded) {
+        onExpandedChange(false)
     }
 
     Box(
@@ -208,6 +211,23 @@ fun FlashScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Backup Current Boot")
             }
+
+            if (flash.rebootRequired) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = onReboot,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Icon(Icons.Filled.Refresh, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Reboot", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                }
+            }
         }
 
         if (!flash.isFlashing && !flash.status.isNullOrBlank()) {
@@ -241,62 +261,78 @@ fun FlashScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     ),
-                    modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .animateContentSize()
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .padding(vertical = 8.dp)
+                            .animateContentSize()
                     ) {
-                        Text(
-                            buildAnnotatedString {
-                                withStyle(SpanStyle(color = Color(0xFF62A0EA), fontFamily = FontFamily.Monospace)) {
-                                    append("$ ")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF1A1D23),
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            "$",
+                                            color = Color(0xFF62A0EA),
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
+                                    }
                                 }
-                                withStyle(SpanStyle(color = Color(0xFF9098A9))) {
-                                    append("terminal output")
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    "Terminal Output",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Row {
+                                TextButton(
+                                    onClick = {
+                                        pendingLogExport = (flash.rawLog ?: flash.lastOutput).orEmpty()
+                                        logExportLauncher.launch(defaultLogFileName("flash"))
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Save,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Save logs", fontSize = 13.sp)
                                 }
-                            },
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                IconButton(
+                                    onClick = { onExpandedChange(true) },
+                                    enabled = !flash.lastOutput.isNullOrBlank()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Fullscreen,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        TerminalView(
+                            log = flash.lastOutput ?: "",
+                            modifier = Modifier.padding(horizontal = 8.dp)
                         )
-                        TextButton(
-                            onClick = {
-                                pendingLogExport = (flash.rawLog ?: flash.lastOutput).orEmpty()
-                                logExportLauncher.launch(defaultLogFileName("flash"))
-                            },
-                            contentPadding = PaddingValues(horizontal = 8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Save,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Save logs")
-                        }
-                        IconButton(
-                            onClick = { onExpandedChange(true) },
-                            enabled = !flash.lastOutput.isNullOrBlank()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Fullscreen,
-                                contentDescription = null
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    TerminalView(log = flash.lastOutput ?: "")
-
-                    Spacer(modifier = Modifier.height(88.dp))
                     }
                 }
             }
@@ -311,33 +347,10 @@ fun FlashScreen(
             ) {
                 Text("Clear / Reset")
             }
+            Spacer(modifier = Modifier.height(88.dp))
         }
 
         Spacer(modifier = Modifier.height(120.dp))
-        }
-
-        AnimatedVisibility(
-            visible = flash.rebootRequired && !flash.isFlashing,
-            enter = fadeIn(tween(200)) + expandVertically(),
-            exit = fadeOut(tween(150)) + shrinkVertically(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 24.dp, bottom = 104.dp)
-        ) {
-            Button(
-                onClick = onReboot,
-                modifier = Modifier.height(56.dp),
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
-            ) {
-                Icon(Icons.Filled.Refresh, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Reboot", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-            }
         }
     }
 
@@ -360,17 +373,29 @@ fun FlashScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        buildAnnotatedString {
-                            withStyle(SpanStyle(color = Color(0xFF62A0EA), fontFamily = FontFamily.Monospace)) {
-                                append("$ ")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF1A1D23),
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    "$",
+                                    color = Color(0xFF62A0EA),
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
                             }
-                            withStyle(SpanStyle(color = Color(0xFF9098A9))) {
-                                append("terminal output")
-                            }
-                        },
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                    )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            "Terminal Output",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(onClick = { onExpandedChange(false) }) {
                         Icon(Icons.Filled.FullscreenExit, contentDescription = null)
                     }

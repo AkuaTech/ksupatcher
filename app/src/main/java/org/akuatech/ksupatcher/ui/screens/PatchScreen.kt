@@ -30,10 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -377,46 +374,63 @@ fun PatchScreen(
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(8.dp)
+                        .padding(vertical = 8.dp)
                         .animateContentSize()
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            buildAnnotatedString {
-                                withStyle(SpanStyle(color = Color(0xFF62A0EA), fontFamily = FontFamily.Monospace)) {
-                                    append("$ ")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFF1A1D23),
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        "$",
+                                        color = Color(0xFF62A0EA),
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
                                 }
-                                withStyle(SpanStyle(color = Color(0xFF9098A9))) {
-                                    append("terminal output")
-                                }
-                            },
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                        )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                "Terminal Output",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         TextButton(
                             onClick = {
                                 pendingLogExport = patch.lastOutput.orEmpty()
                                 val scope = if (patch.method == InstallMethod.LKM) "lkm" else "install"
                                 logExportLauncher.launch(defaultLogFileName(scope))
                             },
-                            contentPadding = PaddingValues(horizontal = 8.dp)
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Save,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Save logs")
+                            Text("Save logs", fontSize = 13.sp)
                         }
                     }
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    TerminalView(log = patch.lastOutput ?: "")
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    TerminalView(
+                        log = patch.lastOutput ?: "",
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
                 }
             }
         }
