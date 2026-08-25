@@ -1,0 +1,38 @@
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="flash"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_flash"
+        android:shortcutShortLabel="@string/shortcut_flash"
+        android:shortcutLongLabel="@string/shortcut_flash_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="org.akuatech.ksupatcher"
+            android:targetClass="org.akuatech.ksupatcher.MainActivity"
+            android:data="ksupatcher://flash" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="ota"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_ota"
+        android:shortcutShortLabel="@string/shortcut_ota"
+        android:shortcutLongLabel="@string/shortcut_ota_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="org.akuatech.ksupatcher"
+            android:targetClass="org.akuatech.ksupatcher.MainActivity"
+            android:data="ksupatcher://ota" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="settings"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_settings"
+        android:shortcutShortLabel="@string/shortcut_settings"
+        android:shortcutLongLabel="@string/shortcut_settings_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="org.akuatech.ksupatcher"
+            android:targetClass="org.akuatech.ksupatcher.MainActivity"
+            android:data="ksupatcher://settings" />
+    </shortcut>
+</shortcuts>

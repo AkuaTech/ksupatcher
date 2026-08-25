@@ -54,12 +54,14 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.net.Uri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.runtime.LaunchedEffect
 import org.akuatech.ksupatcher.ui.components.DisclaimerDialog
 import org.akuatech.ksupatcher.ui.components.InstallPermissionRationaleDialog
 import org.akuatech.ksupatcher.ui.screens.FlashScreen
@@ -78,7 +80,9 @@ private data class NavItem(
 
 @Composable
 fun KsuPatcherNavGraph(
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    pendingUri: Uri? = null,
+    pendingRoute: String? = null
 ) {
     val navController = rememberNavController()
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -102,6 +106,15 @@ fun KsuPatcherNavGraph(
         }
     }
 
+    LaunchedEffect(pendingUri, pendingRoute) {
+        if (pendingUri == null && pendingRoute == null) return@LaunchedEffect
+        if (pendingUri != null) {
+            if (pendingRoute == "flash") viewModel.importFlashZip(pendingUri)
+            else viewModel.importBootImage(pendingUri)
+        }
+        pendingRoute?.let { navController.navigate(it) { launchSingleTop = true } }
+    }
+
     var flashExpanded by remember { mutableStateOf(false) }
 
     if (state.showDisclaimer) {
@@ -123,7 +136,7 @@ fun KsuPatcherNavGraph(
         ) {
             NavHost(
                 navController = navController,
-                startDestination = "install",
+                startDestination = pendingRoute ?: "install",
                 modifier = Modifier.fillMaxSize(),
                 enterTransition = { fadeIn(tween(300, easing = FastOutSlowInEasing)) },
                 exitTransition = { fadeOut(tween(300, easing = FastOutSlowInEasing)) },

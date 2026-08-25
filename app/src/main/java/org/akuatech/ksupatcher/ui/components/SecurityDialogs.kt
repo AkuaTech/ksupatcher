@@ -270,7 +270,7 @@ fun DisclaimerDialog(onDismiss: (dontShowAgain: Boolean) -> Unit) {
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Required only for ADB/CLI intents. Not needed when using the in-app file picker.",
+                                text = "Required only for ADB/CLI intents.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

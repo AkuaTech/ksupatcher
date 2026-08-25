@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">KSUPatcher</string>
+    <string name="label_flash_zip">Flash AnyKernel zip</string>
+    <string name="label_patch_boot">Patch boot image</string>
+    <string name="shortcut_flash">Flash</string>
+    <string name="shortcut_flash_long">Flash kernel zip</string>
+    <string name="shortcut_ota">OTA</string>
+    <string name="shortcut_ota_long">OTA update</string>
+    <string name="shortcut_settings">Settings</string>
+    <string name="shortcut_settings_long">App settings</string>
 </resources>

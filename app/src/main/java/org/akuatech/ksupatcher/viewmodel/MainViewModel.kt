@@ -79,8 +79,9 @@ data class UiState(
     val rootStatus: RootStatus = RootStatus.UNKNOWN,
     val isCheckingRoot: Boolean = false,
     val themeMode: String = "auto",
-    val showDisclaimer: Boolean = true,
-    val showInstallPermissionRationale: Boolean = false
+    val showDisclaimer: Boolean = false,
+    val showInstallPermissionRationale: Boolean = false,
+    val disclaimerDismissed: Boolean = false
 )
 
 data class PatchState(
@@ -145,7 +146,9 @@ class MainViewModel(
         viewModelScope.launch {
             settingsRepository.disclaimerAcceptedFlow.collect { accepted ->
                 if (accepted) {
-                    _state.update { it.copy(showDisclaimer = false) }
+_state.update { it.copy(showDisclaimer = false, disclaimerDismissed = true) }
+                } else if (!_state.value.disclaimerDismissed) {
+                    _state.update { it.copy(showDisclaimer = true) }
                 }
             }
         }

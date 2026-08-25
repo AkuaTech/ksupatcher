@@ -302,8 +302,8 @@ fun SettingsScreen(
 }
 
 @Composable
-fun InfoRow(label: String, value: String) {
-    InfoRow(label = label, value = value, valueColor = MaterialTheme.colorScheme.onSurface)
+fun InfoRow(label: String, value: String, onClick: (() -> Unit)? = null, copyable: Boolean = false) {
+    InfoRow(label = label, value = value, valueColor = MaterialTheme.colorScheme.onSurface, onClick = onClick, copyable = copyable)
 }
 
 @Composable
