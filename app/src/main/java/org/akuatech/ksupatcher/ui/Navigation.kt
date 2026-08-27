@@ -190,7 +190,6 @@ val navItems = remember {
                         onExpandedChange = { flashExpanded = it },
                         onPickZip = { viewModel.importFlashZip(it) },
                         onRunFlash = { viewModel.runFlashKernel() },
-                        onBackupBoot = { viewModel.backupBoot() },
                         onReset = { viewModel.resetFlash() },
                         onReboot = { viewModel.rebootNow() }
                     )
@@ -219,7 +218,6 @@ val navItems = remember {
                         onRefreshVersion = { viewModel.refreshVersion() },
                         onRefreshRoot = { viewModel.refreshRootStatus() },
                         onInstallAppUpdate = { viewModel.installAppUpdate() },
-                        onUpdateKmi = { viewModel.updateKmi(it) },
                         onUpdateTheme = { viewModel.setThemeMode(it) }
                     )
                 }

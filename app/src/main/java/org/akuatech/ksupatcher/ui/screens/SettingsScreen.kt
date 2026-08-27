@@ -46,7 +46,6 @@ fun SettingsScreen(
     onRefreshVersion: () -> Unit,
     onRefreshRoot: () -> Unit,
     onInstallAppUpdate: () -> Unit,
-    onUpdateKmi: (String) -> Unit,
     onUpdateTheme: (String) -> Unit
 ) {
     val scrollState = rememberScrollState()
@@ -71,11 +70,6 @@ fun SettingsScreen(
             status = state.rootStatus,
             isChecking = state.isCheckingRoot,
             onRefresh = onRefreshRoot
-        )
-
-        KmiSelectionCard(
-            selectedKmi = state.patchState.kmi,
-            onUpdateKmi = onUpdateKmi
         )
 
         AppearanceCard(
@@ -362,94 +356,6 @@ fun InfoRow(
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun KmiSelectionCard(
-    selectedKmi: String,
-    onUpdateKmi: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val kmis = org.akuatech.ksupatcher.data.UpdateConfig.supportedKmis
-
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Kernel Module Interface (KMI)",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Text(
-                text = "Select your device's KMI version for compatible patching.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
-                        .fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = selectedKmi,
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Icon(
-                            imageVector = HugeIcons.ArrowDown01,
-                            contentDescription = "Select KMI",
-                            modifier = Modifier
-                                .size(24.dp)
-                                .rotate(if (expanded) 180f else 0f),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    modifier = Modifier.exposedDropdownSize()
-                ) {
-                    kmis.forEach { kmi ->
-                        DropdownMenuItem(
-                            text = { Text(kmi) },
-                            onClick = {
-                                onUpdateKmi(kmi)
-                                expanded = false
-                            }
-                        )
-                    }
                 }
             }
         }

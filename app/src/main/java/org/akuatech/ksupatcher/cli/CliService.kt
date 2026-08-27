@@ -64,7 +64,7 @@ class CliService : Service() {
         val settings = SettingsRepository(applicationContext)
 
         scope.launch {
-            val kmi = kmiArg ?: settings.kmiFlow.first()
+            val kmi = kmiArg ?: "android12-5.10"
             Log.i(TAG, "action=$action variant=$variant kmi=$kmi allowShell=$allowShell enableAdbd=$enableAdbd")
             val result = if (action == "patch") {
                 engine.runFilePatch(

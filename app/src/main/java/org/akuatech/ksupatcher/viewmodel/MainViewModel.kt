@@ -129,11 +129,6 @@ class MainViewModel(
             }
         }
         viewModelScope.launch {
-            settingsRepository.kmiFlow.collect { kmi ->
-                _state.update { it.copy(patchState = it.patchState.copy(kmi = kmi)) }
-            }
-        }
-        viewModelScope.launch {
             settingsRepository.themeModeFlow.collect { mode ->
                 _state.update { it.copy(themeMode = mode) }
             }
@@ -160,7 +155,7 @@ _state.update { it.copy(showDisclaimer = false, disclaimerDismissed = true) }
         if (dontShowAgain) {
             viewModelScope.launch { settingsRepository.setDisclaimerAccepted() }
         }
-        _state.update { it.copy(showDisclaimer = false) }
+        _state.update { it.copy(showDisclaimer = false, disclaimerDismissed = true) }
     }
 
     fun dismissInstallPermissionRationale() {
@@ -290,12 +285,6 @@ _state.update { it.copy(showDisclaimer = false, disclaimerDismissed = true) }
                     appUpdateError = result.exceptionOrNull()?.message
                 )
             }
-        }
-    }
-
-    fun updateKmi(value: String) {
-        viewModelScope.launch {
-            settingsRepository.setKmi(value)
         }
     }
 
@@ -859,31 +848,6 @@ _state.update { it.copy(showDisclaimer = false, disclaimerDismissed = true) }
                 val status = if (lastPhase == OtaPhase.NO_ROOT) "Root access denied" else "Flash failed"
                 _state.update { it.copy(flashState = it.flashState.copy(status = status, isFlashing = false)) }
                 appendLog("Flash failed: ${result.exceptionOrNull()?.message}")
-                publishFlashLog(logBuf.toString())
-            }
-        }
-    }
-
-    fun backupBoot() {
-        viewModelScope.launch {
-            val (logBuf, appendLog) = flashLogStream()
-            _state.update { it.copy(flashState = it.flashState.copy(isFlashing = true, status = "Backing up...", lastOutput = null)) }
-
-            var lastPhase = OtaPhase.IDLE
-            val result = engine.backupBoot(
-                onLine = appendLog,
-                onPhase = { lastPhase = it },
-            )
-            publishFlashLog(logBuf.toString())
-
-            if (result.isSuccess) {
-                _state.update { it.copy(flashState = it.flashState.copy(status = "Backup saved to Downloads", isFlashing = false)) }
-                appendLog("Backup complete. Saved to Downloads.")
-                publishFlashLog(logBuf.toString())
-            } else {
-                val status = if (lastPhase == OtaPhase.NO_ROOT) "Root access denied" else "Backup failed"
-                _state.update { it.copy(flashState = it.flashState.copy(status = status, isFlashing = false)) }
-                appendLog("Backup failed: ${result.exceptionOrNull()?.message}")
                 publishFlashLog(logBuf.toString())
             }
         }

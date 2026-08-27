@@ -79,7 +79,6 @@ fun FlashScreen(
     onExpandedChange: (Boolean) -> Unit,
     onPickZip: (Uri) -> Unit,
     onRunFlash: () -> Unit,
-    onBackupBoot: () -> Unit,
     onReset: () -> Unit,
     onReboot: () -> Unit
 ) {
@@ -201,19 +200,6 @@ fun FlashScreen(
                 Icon(HugeIcons.Zap, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Flash", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedButton(
-                onClick = onBackupBoot,
-                enabled = state.rootStatus == RootStatus.GRANTED,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Icon(HugeIcons.Save, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Backup Current Boot")
             }
 
             if (flash.rebootRequired) {
