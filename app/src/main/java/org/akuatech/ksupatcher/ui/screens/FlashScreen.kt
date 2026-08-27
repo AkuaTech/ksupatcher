@@ -14,6 +14,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,13 +32,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.FullscreenExit
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.SaveAlt
+import me.rerere.hugeicons.HugeIcons
+import me.rerere.hugeicons.stroke.Maximize01
+import me.rerere.hugeicons.stroke.Minimize01
+import me.rerere.hugeicons.stroke.RefreshCw
+import me.rerere.hugeicons.stroke.Save
+import me.rerere.hugeicons.stroke.Zap
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -65,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.akuatech.ksupatcher.ui.components.RootRequiredBanner
 import org.akuatech.ksupatcher.ui.components.TerminalView
+import org.akuatech.ksupatcher.ui.components.rememberPressScale
 import org.akuatech.ksupatcher.util.defaultLogFileName
 import org.akuatech.ksupatcher.util.writeLogToUri
 import org.akuatech.ksupatcher.viewmodel.RootStatus
@@ -124,7 +126,7 @@ fun FlashScreen(
         Spacer(modifier = Modifier.height(32.dp))
         Text(
             text = "Flash Kernel",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold),
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -184,17 +186,19 @@ fun FlashScreen(
         }
 
         if (!flash.isFlashing) {
+            val (flashPress, flashScale) = rememberPressScale()
             Button(
                 onClick = onRunFlash,
                 enabled = !flash.zipPath.isNullOrBlank() && state.rootStatus == RootStatus.GRANTED,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                interactionSource = flashPress,
+                modifier = Modifier.fillMaxWidth().height(56.dp).then(flashScale),
                 shape = RoundedCornerShape(20.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Icon(Icons.Filled.FlashOn, contentDescription = null)
+                Icon(HugeIcons.Zap, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Flash", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             }
@@ -207,7 +211,7 @@ fun FlashScreen(
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(20.dp)
             ) {
-                Icon(Icons.Filled.SaveAlt, contentDescription = null)
+                Icon(HugeIcons.Save, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Backup Current Boot")
             }
@@ -223,7 +227,7 @@ fun FlashScreen(
                         contentColor = MaterialTheme.colorScheme.onError
                     )
                 ) {
-                    Icon(Icons.Filled.Refresh, contentDescription = null)
+                    Icon(HugeIcons.RefreshCw, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Reboot", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                 }
@@ -307,7 +311,7 @@ fun FlashScreen(
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Save,
+                                        imageVector = HugeIcons.Save,
                                         contentDescription = null,
                                         modifier = Modifier.size(16.dp)
                                     )
@@ -319,7 +323,7 @@ fun FlashScreen(
                                     enabled = !flash.lastOutput.isNullOrBlank()
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Filled.Fullscreen,
+                                        imageVector = HugeIcons.Maximize01,
                                         contentDescription = null,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -397,7 +401,7 @@ fun FlashScreen(
                         )
                     }
                     IconButton(onClick = { onExpandedChange(false) }) {
-                        Icon(Icons.Filled.FullscreenExit, contentDescription = null)
+                        Icon(HugeIcons.Minimize01, contentDescription = null)
                     }
                 }
 

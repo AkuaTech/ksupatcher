@@ -1,24 +1,31 @@
 package org.akuatech.ksupatcher.ui.components
 
 import android.graphics.BitmapFactory
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Warning
+import me.rerere.hugeicons.HugeIcons
+import me.rerere.hugeicons.stroke.Alert01
+import me.rerere.hugeicons.stroke.Cancel01
+import me.rerere.hugeicons.stroke.CheckmarkCircle01
+import me.rerere.hugeicons.stroke.ChevronRight
+import me.rerere.hugeicons.stroke.InformationCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
@@ -34,7 +41,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -95,7 +101,7 @@ fun NetworkImage(
 fun AppStatusCard(
     title: String,
     subtitle: String,
-    icon: ImageVector = Icons.Default.Info,
+    icon: ImageVector = HugeIcons.InformationCircle,
     iconColor: Color = MaterialTheme.colorScheme.primary,
     titleColor: Color = MaterialTheme.colorScheme.onSurface,
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -338,7 +344,7 @@ fun RootStatusCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isGranted) Icons.Filled.CheckCircle else Icons.Filled.Cancel,
+                    imageVector = if (isGranted) HugeIcons.CheckmarkCircle01 else HugeIcons.Cancel01,
                     contentDescription = null,
                     tint = accentColor,
                     modifier = Modifier.size(24.dp)
@@ -403,7 +409,7 @@ fun RootRequiredBanner(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
-                imageVector = Icons.Filled.Warning,
+                imageVector = HugeIcons.Alert01,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(20.dp)
@@ -464,4 +470,16 @@ fun TerminalView(
             )
         }
     }
+}
+
+@Composable
+fun rememberPressScale(): Pair<MutableInteractionSource, Modifier> {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "press"
+    )
+    return interactionSource to Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
 }

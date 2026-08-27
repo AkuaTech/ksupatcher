@@ -28,11 +28,11 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.ExpandMore
+import me.rerere.hugeicons.HugeIcons
+import me.rerere.hugeicons.stroke.ArrowDown01
+import me.rerere.hugeicons.stroke.Copy01
+import me.rerere.hugeicons.stroke.SourceCode
+import me.rerere.hugeicons.stroke.Tick01
 import androidx.compose.ui.res.painterResource
 import org.akuatech.ksupatcher.R
 import org.akuatech.ksupatcher.BuildConfig
@@ -63,7 +63,7 @@ fun SettingsScreen(
 
         Text(
             text = "Settings",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold),
             color = MaterialTheme.colorScheme.onBackground
         )
 
@@ -143,7 +143,7 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(4.dp))
 
                             Icon(
-                                imageVector = Icons.Default.ExpandMore,
+                                imageVector = HugeIcons.ArrowDown01,
                                 contentDescription = if (versionInfoExpanded) "Collapse" else "Expand",
                                 modifier = Modifier
                                     .size(20.dp)
@@ -357,7 +357,7 @@ fun InfoRow(
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ContentCopy,
+                        imageVector = HugeIcons.Copy01,
                         contentDescription = "Copy",
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -426,7 +426,7 @@ fun KmiSelectionCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Icon(
-                            imageVector = Icons.Default.ExpandMore,
+                            imageVector = HugeIcons.ArrowDown01,
                             contentDescription = "Select KMI",
                             modifier = Modifier
                                 .size(24.dp)
@@ -577,7 +577,7 @@ fun AdvancedCard() {
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Check,
+                            imageVector = HugeIcons.Tick01,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
@@ -657,7 +657,7 @@ fun AboutCard(buildHash: String) {
                 )
             ) {
                 Icon(
-                    imageVector = Icons.Default.Code,
+                    imageVector = HugeIcons.SourceCode,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )

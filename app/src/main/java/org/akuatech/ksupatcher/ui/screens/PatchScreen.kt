@@ -35,8 +35,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import me.rerere.hugeicons.HugeIcons
+import me.rerere.hugeicons.stroke.ArrowDown01
+import me.rerere.hugeicons.stroke.ArrowUp01
+import me.rerere.hugeicons.stroke.Cancel01
+import me.rerere.hugeicons.stroke.ChevronRight
+import me.rerere.hugeicons.stroke.CloudDownload
+import me.rerere.hugeicons.stroke.Edit01
+import me.rerere.hugeicons.stroke.RefreshCw
+import me.rerere.hugeicons.stroke.Save
+import me.rerere.hugeicons.stroke.SlidersHorizontal
+import me.rerere.hugeicons.stroke.Tick01
 import androidx.compose.ui.text.style.TextOverflow
 import org.akuatech.ksupatcher.ui.components.*
 import org.akuatech.ksupatcher.util.defaultLogFileName
@@ -100,7 +109,7 @@ fun PatchScreen(
         
         Text(
             text = "Install",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold),
             color = MaterialTheme.colorScheme.onBackground
         )
 
@@ -151,7 +160,7 @@ fun PatchScreen(
             AppActionTile(
                 title = "Patch",
                 subtitle = "Boot Image",
-                icon = Icons.Filled.Edit,
+                icon = HugeIcons.Edit01,
                 selected = patch.method == InstallMethod.PATCH,
                 onClick = { onMethodSelected(InstallMethod.PATCH) },
                 modifier = Modifier.weight(1f)
@@ -159,7 +168,7 @@ fun PatchScreen(
             AppActionTile(
                 title = "Install",
                 subtitle = "LKM (Current)",
-                icon = Icons.Filled.CloudDownload,
+                icon = HugeIcons.CloudDownload,
                 selected = patch.method == InstallMethod.LKM,
                 onClick = { onMethodSelected(InstallMethod.LKM) },
                 modifier = Modifier.weight(1f)
@@ -276,12 +285,15 @@ fun PatchScreen(
                 if (patch.method == InstallMethod.LKM && !state.isCheckingRoot && state.rootStatus != RootStatus.GRANTED) {
                     RootRequiredBanner()
                 }
+                val (runPress, runScale) = rememberPressScale()
                 Button(
                     onClick = { if (patch.method == InstallMethod.PATCH) onRunPatch() else onRunLkm() },
                     enabled = patch.method == InstallMethod.PATCH || state.rootStatus == RootStatus.GRANTED,
+                    interactionSource = runPress,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp),
+                        .height(64.dp)
+                        .then(runScale),
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -327,7 +339,7 @@ fun PatchScreen(
                     shape = RoundedCornerShape(20.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null)
+                    Icon(HugeIcons.RefreshCw, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Clear / Reset")
                 }
@@ -416,7 +428,7 @@ fun PatchScreen(
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Save,
+                                imageVector = HugeIcons.Save,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -509,7 +521,7 @@ fun FileSelector(
                 )
             }
             Icon(
-                imageVector = Icons.Filled.ChevronRight,
+                imageVector = HugeIcons.ChevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
                 modifier = Modifier.size(20.dp)
@@ -552,7 +564,7 @@ fun AdvancedOptionsSection(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Tune,
+                        imageVector = HugeIcons.SlidersHorizontal,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
@@ -564,7 +576,7 @@ fun AdvancedOptionsSection(
                     )
                 }
                 Icon(
-                    imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    imageVector = if (expanded) HugeIcons.ArrowUp01 else HugeIcons.ArrowDown01,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier.size(20.dp)
@@ -609,7 +621,7 @@ fun AdvancedOptionsSection(
                             onCheckedChange = onToggleAllowShell,
                             thumbContent = {
                                 Icon(
-                                    imageVector = if (allowShell) Icons.Filled.Check else Icons.Filled.Close,
+                                    imageVector = if (allowShell) HugeIcons.Tick01 else HugeIcons.Cancel01,
                                     contentDescription = null,
                                     modifier = Modifier.size(SwitchDefaults.IconSize)
                                 )
@@ -645,7 +657,7 @@ fun AdvancedOptionsSection(
                             onCheckedChange = onToggleEnableAdbd,
                             thumbContent = {
                                 Icon(
-                                    imageVector = if (enableAdbd) Icons.Filled.Check else Icons.Filled.Close,
+                                    imageVector = if (enableAdbd) HugeIcons.Tick01 else HugeIcons.Cancel01,
                                     contentDescription = null,
                                     modifier = Modifier.size(SwitchDefaults.IconSize)
                                 )
@@ -690,7 +702,7 @@ fun UpdateNotificationCard(onClick: () -> Unit) {
                 )
             }
             Icon(
-                imageVector = Icons.Filled.ChevronRight,
+                imageVector = HugeIcons.ChevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                 modifier = Modifier.size(18.dp)

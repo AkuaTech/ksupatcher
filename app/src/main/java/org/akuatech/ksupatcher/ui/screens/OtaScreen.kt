@@ -17,8 +17,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import me.rerere.hugeicons.HugeIcons
+import me.rerere.hugeicons.stroke.Alert01
+import me.rerere.hugeicons.stroke.AlertCircle
+import me.rerere.hugeicons.stroke.CheckmarkCircle01
+import me.rerere.hugeicons.stroke.InformationCircle
+import me.rerere.hugeicons.stroke.RefreshCw
+import me.rerere.hugeicons.stroke.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -96,7 +101,7 @@ fun OtaScreen(
         Spacer(modifier = Modifier.height(32.dp))
         Text(
             text = "Root OTA",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold),
             color = MaterialTheme.colorScheme.onBackground
         )
 
@@ -121,7 +126,7 @@ fun OtaScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Info,
+                        imageVector = HugeIcons.InformationCircle,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
@@ -214,10 +219,12 @@ fun OtaScreen(
                     RootRequiredBanner()
                     Spacer(modifier = Modifier.height(12.dp))
                 }
+                val (otaPress, otaScale) = rememberPressScale()
                 Button(
                     onClick = onRunOta,
                     enabled = rootStatus == RootStatus.GRANTED,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    interactionSource = otaPress,
+                    modifier = Modifier.fillMaxWidth().height(56.dp).then(otaScale),
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
@@ -317,7 +324,7 @@ fun OtaScreen(
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Save,
+                                imageVector = HugeIcons.Save,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -342,15 +349,15 @@ private fun PhaseStatusCard(otaState: OtaState) {
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val (iconColor, icon, label) = when (otaState.phase) {
         OtaPhase.DONE ->
-            Triple(if (isDark) SuccessGreen else Color(0xFF2E7D32), Icons.Filled.CheckCircle, "Complete")
+            Triple(if (isDark) SuccessGreen else Color(0xFF2E7D32), HugeIcons.CheckmarkCircle01, "Complete")
         OtaPhase.ERROR ->
-            Triple(MaterialTheme.colorScheme.error, Icons.Filled.Error, "Error")
+            Triple(MaterialTheme.colorScheme.error, HugeIcons.AlertCircle, "Error")
         OtaPhase.NO_ROOT ->
-            Triple(MaterialTheme.colorScheme.error, Icons.Filled.Error, "No Root Access")
+            Triple(MaterialTheme.colorScheme.error, HugeIcons.AlertCircle, "No Root Access")
         OtaPhase.NO_OTA_PENDING ->
-            Triple(MaterialTheme.colorScheme.secondary, Icons.Filled.Warning, "No OTA Pending")
+            Triple(MaterialTheme.colorScheme.secondary, HugeIcons.Alert01, "No OTA Pending")
         else ->
-            Triple(MaterialTheme.colorScheme.primary, Icons.Filled.Sync, phaseLabel(otaState.phase))
+            Triple(MaterialTheme.colorScheme.primary, HugeIcons.RefreshCw, phaseLabel(otaState.phase))
     }
 
     val containerColor = if (otaState.phase == OtaPhase.DONE) {

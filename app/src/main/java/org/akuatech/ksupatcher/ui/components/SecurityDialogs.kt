@@ -34,11 +34,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Security
-import androidx.compose.material.icons.outlined.SystemUpdate
+import me.rerere.hugeicons.HugeIcons
+import me.rerere.hugeicons.stroke.Folder01
+import me.rerere.hugeicons.stroke.RefreshCw
+import me.rerere.hugeicons.stroke.Shield01
+import me.rerere.hugeicons.stroke.Tick01
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -179,7 +179,7 @@ fun DisclaimerDialog(onDismiss: (dontShowAgain: Boolean) -> Unit) {
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Security,
+                            imageVector = HugeIcons.Shield01,
                             contentDescription = null,
                             tint = Amber,
                             modifier = Modifier.size(22.dp)
@@ -219,7 +219,7 @@ fun DisclaimerDialog(onDismiss: (dontShowAgain: Boolean) -> Unit) {
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Security,
+                                imageVector = HugeIcons.Shield01,
                                 contentDescription = null,
                                 tint = Amber,
                                 modifier = Modifier.size(18.dp)
@@ -254,7 +254,7 @@ fun DisclaimerDialog(onDismiss: (dontShowAgain: Boolean) -> Unit) {
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Folder,
+                                imageVector = HugeIcons.Folder01,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
@@ -285,7 +285,7 @@ fun DisclaimerDialog(onDismiss: (dontShowAgain: Boolean) -> Unit) {
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Filled.Check,
+                                    imageVector = HugeIcons.Tick01,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -385,7 +385,7 @@ fun InstallPermissionRationaleDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.SystemUpdate,
+                            imageVector = HugeIcons.RefreshCw,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
